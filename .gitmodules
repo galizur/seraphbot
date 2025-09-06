@@ -1,0 +1,6 @@
+[submodule "imgui"]
+	path = subprojects/imgui
+	url = https://github.com/ocornut/imgui
+[submodule "spdlog"]
+	path = subprojects/spdlog
+	url = https://github.com/gabime/spdlog.git
