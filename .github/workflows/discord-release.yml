@@ -1,0 +1,24 @@
+name: Discord Release Notification
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord Notification
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: |
+                🚀 **SeraphBot ${{ github.event.release.tag_name }}** has been released!
+
+                **Release Notes:**
+                ${{ github.event.release.body }}
+
+                **Download:** ${{ github.event.release.html_url }}
+
+                Built with modern C++23 • Powered by Boost.Asio • UI with Dear ImGui
