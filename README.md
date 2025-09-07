@@ -33,8 +33,9 @@ A modern C++23 Twitch bot with real-time EventSub integration, chat moderation, 
 
 ### Dependencies
 - **Clang 20** (tested with 20.1.8 for C++23 and libc++ support)
-- **Meson** 1.9 (tested with 1.9)
 - **libc++** development headers
+- **GCC 15** (tested with 15.2.1 for C++23 support)
+- **Meson** 1.9 (tested with 1.9)
 - System package manager for dependencies
 
 **Note**: Dependency versions listed are what's currently tested. Lower versions may work but are untested. Contributions testing with older versions are welcome.
@@ -53,6 +54,17 @@ A modern C++23 Twitch bot with real-time EventSub integration, chat moderation, 
 **Linux**: Primary development platform with full support (specifically Arch for now)
 
 **Windows/macOS**: Experimental support. These platforms may work if you provide appropriate native files for your toolchain. Contributions with working native files for other platforms are welcome!
+
+#### Windows Users
+
+**Security Warning**: The Windows executable is not code-signed, so Windows Defender and browsers may show warnings like "Windows protected your PC" or "Unrecognized app". This is normal for unsigned software.
+
+To run the application:
+1. Click "More info" on the Windows Defender popup
+2. Click "Run anyway"
+3. Or add an exception in Windows Defender if needed.
+
+**Why unsigned?** Code signing certificates cost hundreds of dollars annually. This is FOSS (free open-source software), which you can see the code and build it from source to verify it's safety.
 
 ## Building
 

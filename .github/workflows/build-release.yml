@@ -5,7 +5,7 @@ on:
     types: [published]
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build-linux:
@@ -42,7 +42,7 @@ jobs:
           tar -czf seraphbot-linux-x86_64.tar.gz -C release .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: seraphbot-linux
           path: seraphbot-linux-x86_64.tar.gz
@@ -52,15 +52,105 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: seraphbot-linux-x86_64.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Future: Add Windows and macOS builds when ready
-  # build-windows:
-  #   runs-on: windows-latest
-  #   steps:
-  #     # Windows build steps with vcpkg or similar
+  build-linux-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y meson ninja-build \
+            libboost-dev libglfw3-dev libspdlog-dev nlohmann-json3-dev libssl-dev \
+            libgl1-mesa-dev xorg-dev
+
+      - name: Setup Meson
+        run: |
+          pip install meson
+
+      - name: Configure build
+        run: |
+          meson setup builddir --native-file=debug-linux-gcc.ini --buildtype=debug
+
+      - name: Build
+        run: |
+          meson compile -C builddir
+
+      - name: Package binary
+        run: |
+          mkdir -p release
+          cp builddir/seraphbot release/
+          cp README.md release/
+          cp LICENSE release/
+          tar -czf seraphbot-linux-gcc-x86_64.tar.gz -C release .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: seraphbot-linux-gcc
+          path: seraphbot-linux-gcc-x86_64.tar.gz
+
+      - name: Upload to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: seraphbot-linux-gcc-x86_64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: "a7b6122f6b6504d16d96117336a0562693579933"
+
+      - name: Install dependencies
+        run: |
+          vcpkg install boost-asio boost-beast boost-process glfw3 spdlog nlohmann-json openssl --triplet x64-windows-static
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Setup Python and Meson
+        run: |
+          pip install meson ninja
+
+      - name: Configure build
+        run: |
+          meson setup builddir --native-file=debug-windows.ini --buildtype=debug
+
+      - name: Build
+        run: |
+          meson compile -C builddir
+
+      - name: Package binary
+        run: |
+          mkdir release
+          copy builddir\seraphbot.exe release\
+          copy README.md release\
+          copy LICENSE release\
+          powershell Compress-Archive -Path release\* -DestinationPath seraphbot-windows-x86_64.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: seraphbot-windows
+          path: seraphbot-windows-x86_64.zip
+
+      - name: Upload to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: seraphbot-windows-x86_64.zip
+
+  # Future: Add macOS builds when ready
   # build-macos:
   #   runs-on: macos-latest
   #   steps:
