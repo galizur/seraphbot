@@ -8,7 +8,7 @@ on:
       - "v*"
 
 jobs:
-  build-linux:
+  build-linux-wayland:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,17 +18,38 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y clang libc++-dev libc++abi-dev meson ninja-build \
-            libglfw3-dev libspdlog-dev nlohmann-json3-dev libssl-dev \
-            libgl1-mesa-dev xorg-dev tar build-essential
-          curl -L -O https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.gz
-          tar xzf boost_1_88_0.tar.gz
-          cd boost_1_88_0
-          ./bootstrap.sh
-          sudo ./b2 install
+               libwayland-dev wayland-protocols libxkbcommon-dev \
+               libglfw3-dev libspdlog-dev nlohmann-json3-dev libssl-dev \
+               libgl1-mesa-dev libegl1-mesa-dev \
 
-      - name: Setup Meson
+      - name: Cache Boost
+        uses: actions/cache@v4
+        with:
+          path: boost_1_88_0
+          key: boost-1.88.0-linux-${{ hashFiles('**/meson.build') }}
+
+      - name: Cache Meson subprojects
+        uses: actions/cache@v4
+        with:
+          path: |
+                subprojects/packagecache
+                build/subprojects
+          key: meson-deps-${{ hashFiles('subprojects/*.wrap', 'meson.build') }}
+
+      - name: Install Boost (if not cached)
         run: |
-          pip install meson
+             if [ ! -d "boost_1_88_0" ]; then
+                curl -L -O https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.gz
+                tar xzf boost_1_88_0.tar.gz
+                cd boost_1_88_0
+                ./bootstrap.sh
+                sudo ./b2 install -j$(nproc)
+             fi
+
+      - name: Setup Python and Meson
+        run: |
+             python -m pip install --upgrade pip
+             pip install meson ninja
 
       - name: Configure build
         run: |
@@ -36,7 +57,7 @@ jobs:
 
       - name: Build
         run: |
-          meson compile -C build
+          meson compile -C build -j$(nproc)
 
       - name: Package binary
         run: |
@@ -58,56 +79,6 @@ jobs:
         with:
           files: seraphbot-linux-x86_64.tar.gz
 
-  build-linux-gcc:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y meson ninja-build \
-            libglfw3-dev libspdlog-dev nlohmann-json3-dev libssl-dev \
-            libgl1-mesa-dev xorg-dev tar build-essential
-          curl -L -O https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.gz
-          tar xzf boost_1_88_0.tar.gz
-          cd boost_1_88_0
-          ./bootstrap.sh
-          sudo ./b2 install
-
-      - name: Setup Meson
-        run: |
-          pip install meson
-
-      - name: Configure build
-        run: |
-          meson setup build --native-file=debug-linux-gcc.ini --buildtype=debug
-
-      - name: Build
-        run: |
-          meson compile -C build
-
-      - name: Package binary
-        run: |
-          mkdir -p release
-          cp build/seraphbot release/
-          cp README.md release/
-          cp LICENSE release/
-          tar -czf seraphbot-linux-gcc-x86_64.tar.gz -C release .
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: seraphbot-linux-gcc
-          path: seraphbot-linux-gcc-x86_64.tar.gz
-
-      - name: Upload to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: seraphbot-linux-gcc-x86_64.tar.gz
-
   build-windows:
     runs-on: windows-latest
     steps:
@@ -119,9 +90,17 @@ jobs:
         with:
           vcpkgGitCommitId: "120deac3062162151622ca4860575a33844ba10b"
 
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+                ${{ env.VCPKG_ROOT }}/installed
+                ${{ env.VCPKG_ROOT }}/packages
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json', '**/*.vcpkg') }}
+
       - name: Install dependencies
         run: |
-          vcpkg install boost-asio boost-beast boost-process glfw3 spdlog nlohmann-json openssl --triplet x64-windows-static
+          vcpkg install --triplet x64-windows-static
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
