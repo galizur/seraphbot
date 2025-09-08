@@ -18,8 +18,13 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y clang libc++-dev libc++abi-dev meson ninja-build \
-            libboost-dev libglfw3-dev libspdlog-dev nlohmann-json3-dev libssl-dev \
-            libgl1-mesa-dev xorg-dev
+            libglfw3-dev libspdlog-dev nlohmann-json3-dev libssl-dev \
+            libgl1-mesa-dev xorg-dev tar build-essential
+          wget https://boostorg.jfrog.io/artifactory/main/release/1.88.0/source/boost_1_88_0.tar.gz
+          tar xzf boost_1_88_0.tar.gz
+          cd boost_1_88_0
+          ./bootstrap.sh
+          sudo ./b2 install
 
       - name: Setup Meson
         run: |
@@ -63,8 +68,13 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y meson ninja-build \
-            libboost-dev libglfw3-dev libspdlog-dev nlohmann-json3-dev libssl-dev \
-            libgl1-mesa-dev xorg-dev
+            libglfw3-dev libspdlog-dev nlohmann-json3-dev libssl-dev \
+            libgl1-mesa-dev xorg-dev tar build-essential
+          wget https://boostorg.jfrog.io/artifactory/main/release/1.88.0/source/boost_1_88_0.tar.gz
+          tar xzf boost_1_88_0.tar.gz
+          cd boost_1_88_0
+          ./bootstrap.sh
+          sudo ./b2 install
 
       - name: Setup Meson
         run: |
@@ -106,8 +116,8 @@ jobs:
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: "a7b6122f6b6504d16d96117336a0562693579933"
+        #with:
+          #vcpkgGitCommitId: "a7b6122f6b6504d16d96117336a0562693579933"
 
       - name: Install dependencies
         run: |
