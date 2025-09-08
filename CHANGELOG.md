@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- Defaulted builds to preferred library type (on Linux usually shared libraries)
+- Modified meson.build to prefer system libraries first, fall back to subprojects if they can't be found
+- Boost version is pinned to a specific tested version.
+- spdlog will compile accordingly depending of if `libc++` was found or not
+
+### Fixed
+- Windows builds fall back to `c++latest` and if all fail they fall back to `c++20`
 
 ## [0.1.0] - 2025-09-08
 ### Added
