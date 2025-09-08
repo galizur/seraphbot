@@ -53,7 +53,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <thread>
 
 namespace {
 namespace asio  = boost::asio;
@@ -104,6 +103,8 @@ auto parseTime(const std::string &s) -> std::chrono::system_clock::time_point {
 sbot::tw::Auth::Auth(std::shared_ptr<core::ConnectionManager> conn_manager,
                      std::string url_base)
     : m_conn_manager{std::move(conn_manager)}, m_url_base{std::move(url_base)} {
+  LOG_CONTEXT("Twitch Auth");
+  LOG_TRACE("Auth starting");
 }
 
 auto sbot::tw::Auth::isLoggedIn() const -> bool {
@@ -132,6 +133,7 @@ auto sbot::tw::Auth::generateState() -> std::string {
 
 auto sbot::tw::Auth::getHttpAsync(const std::string &url)
     -> boost::asio::awaitable<std::string> {
+  LOG_CONTEXT("Twitch Auth");
   try {
     auto stream = co_await m_conn_manager->makeSslStreamAsync(
         m_url_base, std::string(c_twitch_port));
@@ -166,7 +168,7 @@ auto sbot::tw::Auth::getHttpAsync(const std::string &url)
     // Check HTTP status
     if (res.result() != http::status::ok &&
         res.result() != http::status::found) {
-      LOG_ERROR("[Auth] HTTP request failed with status: {}", res.result_int());
+      LOG_ERROR("HTTP request failed with status: {}", res.result_int());
       throw std::runtime_error("HTTP request failed with status: " +
                                std::to_string(res.result_int()));
     }
@@ -177,16 +179,16 @@ auto sbot::tw::Auth::getHttpAsync(const std::string &url)
       if (!loc_hdr.empty()) {
         co_return std::string{loc_hdr.data(), loc_hdr.size()};
       }
-      LOG_ERROR("[Auth] Redirect response missing Location header");
+      LOG_ERROR("Redirect response missing Location header");
       throw std::runtime_error("Redirect response missing Location header");
     }
 
     co_return response_body;
   } catch (const beast::system_error &err) {
-    LOG_ERROR("[Auth] HTTP request error: {}", err.what());
+    LOG_ERROR("HTTP request error: {}", err.what());
     throw std::runtime_error("HTTP request failed: " + std::string(err.what()));
   } catch (const std::exception &err) {
-    LOG_ERROR("[Auth] HTTP request unexpected error: {}", err.what());
+    LOG_ERROR("HTTP request unexpected error: {}", err.what());
     throw;
   }
 }
@@ -198,7 +200,7 @@ auto sbot::tw::Auth::fetchClientIdAsync() -> asio::awaitable<std::string> {
   auto json_res = json::parse(response_body);
   m_client_id   = json_res.at("client_id").get<std::string>();
 
-  LOG_INFO("[Auth] Client ID retrieved: {}", m_client_id);
+  LOG_INFO("Client ID retrieved: {}", m_client_id);
   co_return m_client_id;
 }
 
@@ -209,7 +211,7 @@ auto sbot::tw::Auth::getAuthUrlAsync() -> asio::awaitable<std::string> {
   std::string url          = "/auth_url?state=" + m_state;
   std::string redirect_url = co_await getHttpAsync(url);
 
-  LOG_INFO("[Auth] Redirect URL = {}", redirect_url);
+  LOG_INFO("Redirect URL = {}", redirect_url);
   co_return redirect_url;
 }
 
@@ -237,21 +239,20 @@ auto sbot::tw::Auth::fetchUserInfoAsync() -> asio::awaitable<TwitchUserInfo> {
 
 auto sbot::tw::Auth::storeToken(const std::string &token) -> void {
   m_access_token = token;
-  LOG_INFO("[Auth] Access token stored: {}", token);
 }
 
 auto sbot::tw::Auth::storeRefreshToken(const std::string &refresh_token)
     -> void {
   m_refresh_token = refresh_token;
-  LOG_INFO("[Auth] Refresh token stored: {}", refresh_token);
 }
 
 auto sbot::tw::Auth::loginAsync() -> asio::awaitable<void> {
-  LOG_INFO("[Auth] Starting login flow.");
+  LOG_CONTEXT("Twitch Auth");
+  LOG_INFO("Starting login flow.");
   try {
     co_await fetchClientIdAsync();
   } catch (const std::exception &e) {
-    LOG_ERROR("[Auth] Failed to fetch client ID: {}", e.what());
+    LOG_ERROR("Failed to fetch client ID: {}", e.what());
     throw std::runtime_error("Failed to fetch client ID: {}" +
                              std::string(e.what()));
   }
@@ -268,24 +269,24 @@ auto sbot::tw::Auth::loginAsync() -> asio::awaitable<void> {
   boost::process::v1::child child(cmd.c_str());
   child.detach();
 
-  LOG_INFO("[Auth] Waiting for authorization...");
+  LOG_INFO("Waiting for authorization...");
 
   // Poll for token
   int attempts           = 1;
   const int max_attempts = 10;
   while (attempts <= max_attempts) {
     auto delay = std::chrono::seconds(attempts);
-    LOG_INFO("[Auth] Waiting {} seconds before attempt {}", delay.count(),
+    LOG_INFO("Waiting {} seconds before attempt {}", delay.count(),
              attempts);
 
     co_await asio::steady_timer{*m_conn_manager->getIoContext(), delay}
         .async_wait(asio::use_awaitable);
     try {
       co_await requestTokenAsync();
-      LOG_INFO("[Auth] Authorization successful!");
+      LOG_INFO("Authorization successful!");
       co_return;
     } catch (const std::exception &e) {
-      LOG_WARN("[Auth] Poll attempt {} failed: {}", attempts, e.what());
+      LOG_WARN("Poll attempt {} failed: {}", attempts, e.what());
     }
     attempts++;
   }
@@ -294,6 +295,7 @@ auto sbot::tw::Auth::loginAsync() -> asio::awaitable<void> {
 }
 
 auto sbot::tw::Auth::parseTwitchUser(const json &user_json) -> TwitchUserInfo {
+  LOG_CONTEXT("Twitch Auth");
   // Twitch API returns a "data" array. Usually with one user only
   if (!user_json.contains("data") || !user_json["data"].is_array() ||
       user_json["data"].empty()) {

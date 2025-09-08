@@ -16,10 +16,10 @@ A modern C++23 Twitch bot with real-time EventSub integration, chat moderation, 
 ## Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   ImGui UI      │    │  ConnectionMgr   │    │  OAuth Server   │
-│   (Main Thread) │◄──►│  (Thread Pool)   │◄──►│    (Hosted)     │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌────────────────┐
+│    ImGui UI     │    │  ConnectionMgr  │    │  OAuth Server  │
+│  (Main Thread)  │◄──►│  (Thread Pool)  │◄──►│    (Hosted)    │
+└─────────────────┘    └─────────────────┘    └────────────────┘
          ▲                       │
          │              ┌────────▼────────┐
          │              │  Twitch APIs    │
@@ -146,7 +146,8 @@ The async architecture makes it easy to add new functionality:
 - [ ] Clean up code and move to proper spaces
 - [ ] Clean up UI design and layout
 - [ ] Token refresh mechanism
-- [ ] Chat message sending and commands
+- [x] Chat message sending
+- [ ] Rate limits per Twitch's guidelines
 - [ ] Moderation tools (timeouts, bans, message deletion)
 - [ ] Custom command system
 - [ ] Automated moderation rules
@@ -159,6 +160,13 @@ The async architecture makes it easy to add new functionality:
 - [ ] Additional platforms (YouTube, etc)
 - [ ] Windows/macOS platform support
 - [ ] Vulkan backend for ImGui
+
+## Twitch Scopes Used
+
+- `user:read:chat` - Receive chatroom messages and informational notifications relating to a channel’s chatroom.
+- `user:write:chat` - Send chat messages to a chatroom.
+
+You can always verify the scopes at [Twitch Dev Docs](https://dev.twitch.tv/docs/authentication/scopes/)
 
 ## Contributing
 

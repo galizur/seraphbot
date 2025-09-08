@@ -1,7 +1,8 @@
 #include "seraphbot/core/app_state.hpp"
 #include "seraphbot/core/logging.hpp"
 #include "seraphbot/tw/auth.hpp"
-#include "seraphbot/tw/chat.hpp"
+#include "seraphbot/tw/chat_read.hpp"
+#include "seraphbot/tw/chat_write.hpp"
 #include "seraphbot/ui/imgui_backend_opengl.hpp"
 #include "seraphbot/ui/imgui_manager.hpp"
 
@@ -75,6 +76,7 @@ auto initWindowVulkan(int width = 1280, int height = 720) -> GLFWwindow * {
 
 auto main() -> int {
   sbot::core::Logger::init({});
+  LOG_CONTEXT("Main");
   LOG_INFO("SeraphBot starting...");
 
   LOG_INFO("Initializing window");
@@ -91,7 +93,8 @@ auto main() -> int {
 
   sbot::tw::Auth twitch_auth(connection, "seraphbot-oauth-server.onrender.com");
   sbot::tw::ClientConfig twitch_config;
-  std::unique_ptr<sbot::tw::Chat> twitch_client;
+  std::unique_ptr<sbot::tw::ChatRead> twitch_client;
+  std::unique_ptr<sbot::tw::ChatWrite> twitch_write;
   // Main loop
   LOG_INFO("Entering main loop");
   while (!glfwWindowShouldClose(window)) {
@@ -136,8 +139,18 @@ auto main() -> int {
       }
       ImGui::EndChild();
       ImGui::BeginChild("MessageSend");
-      char buffer[512];
-      ImGui::InputText("Send", buffer, 512);
+      static char message_buffer[512] = "";
+      if (ImGui::InputText("Send", message_buffer, sizeof(message_buffer),
+                           ImGuiInputTextFlags_EnterReturnsTrue)) {
+        if (strlen(message_buffer) > 0 && twitch_write) {
+          boost::asio::co_spawn(
+              *connection->getIoContext(),
+              twitch_write->sendChatMessage(message_buffer,
+                                            twitch_config.broadcaster_id),
+              boost::asio::detached);
+          message_buffer[0] = '\0'; // clear input
+        }
+      }
       ImGui::EndChild();
     } else if (app_state.is_logged_in && !app_state.eventsub_active) {
       if (ImGui::Button("Connect to Chat")) {
@@ -181,7 +194,9 @@ auto main() -> int {
         !app_state.eventsub_active) {
       try {
         twitch_client =
-            std::make_unique<sbot::tw::Chat>(connection, twitch_config);
+            std::make_unique<sbot::tw::ChatRead>(connection, twitch_config);
+        twitch_write =
+            std::make_unique<sbot::tw::ChatWrite>(connection, twitch_config);
         auto app_state_ptr =
             std::make_shared<sbot::core::AppState *>(&app_state);
         // start async connection *runs on thread pool)
@@ -233,10 +248,6 @@ auto main() -> int {
         LOG_ERROR("Twitch eventsub failed: {}", e.what());
       }
     }
-
-    // if (app_state.eventsub_active && twitch_client) {
-    //   twitch_client->pollIo();
-    // }
 
     glfwSwapBuffers(window);
   }

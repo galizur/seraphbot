@@ -1,4 +1,4 @@
-#include "seraphbot/tw/chat.hpp"
+#include "seraphbot/tw/chat_read.hpp"
 
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/core/logging.hpp"
@@ -51,81 +51,25 @@ using tcp       = asio::ip::tcp;
 using json      = nlohmann::json;
 } // namespace
 
-namespace {
-auto stripOauthPrefix(std::string token) -> std::string {
-  if (token.starts_with("oauth:")) {
-    return token.substr(6);
-  }
-  return token;
-}
-} // namespace
-
-/* Helper: Perform a synchronous HTTPS POST returning the full body as string
-  host example: "api.twitch.tv", target e.g. "/helix/eventsub/subscriptions"
- */
-auto sbot::tw::Chat::httpsPostAsync(
-    const std::string &host, const std::string &port, const std::string &target,
-    const std::string &body,
-    const std::vector<std::pair<std::string, std::string>> &headers)
-    -> asio::awaitable<std::string> {
-  auto stream = co_await m_conn_manager->makeSslStreamAsync(host, port);
-
-  co_await stream->async_handshake(ssl::stream_base::client,
-                                   asio::use_awaitable);
-
-  // Set up HTTP request
-  http::request<http::string_body> req{http::verb::post, target, 11};
-  req.set(http::field::host, host);
-  req.set(http::field::user_agent, "seraphbot-eventsub/0.1");
-  req.set(http::field::content_type, "application/json");
-  req.set(http::field::connection,
-          "close"); // Important: signal connection close
-
-  for (const auto &head : headers) {
-    req.set(head.first, head.second);
-  }
-  req.body() = body;
-  req.prepare_payload();
-
-  co_await http::async_write(*stream, req, asio::use_awaitable);
-
-  beast::flat_buffer buffer;
-  http::response<http::dynamic_body> res;
-  co_await http::async_read(*stream, buffer, res, asio::use_awaitable);
-
-  // Extract response body before shutdown
-  std::string response_body = beast::buffers_to_string(res.body().data());
-
-  try {
-    // Set a timeout for shutdown
-    co_await stream->async_shutdown(boost::asio::use_awaitable);
-  } catch (const beast::system_error &err_c) {
-    if (err_c.code() != asio::error::eof &&
-        err_c.code() != ssl::error::stream_truncated &&
-        err_c.code() != beast::error::timeout) {
-      LOG_WARN("SSL shutdown warning (usually harmless): {}", err_c.what());
-    }
-  }
-  co_return response_body;
+sbot::tw::ChatRead::ChatRead(
+    std::shared_ptr<core::ConnectionManager> conn_manager, ClientConfig cfg)
+    : m_cfg{std::move(cfg)}, m_conn_manager{std::move(conn_manager)} {
+  LOG_CONTEXT("Twitch Chat Read");
+  LOG_TRACE("Initializing");
 }
 
-sbot::tw::Chat::Chat(std::shared_ptr<core::ConnectionManager> conn_manager,
-                     ClientConfig cfg)
-    : m_cfg{std::move(cfg)}, m_conn_manager{std::move(conn_manager)} {}
+sbot::tw::ChatRead::~ChatRead() {
+  LOG_CONTEXT("Twitch Chat Read");
+  LOG_TRACE("Destructor called");
+}
 
-sbot::tw::Chat::~Chat() { LOG_DEBUG("Chat destructor called"); }
-
-auto sbot::tw::Chat::start(on_notify_fn callback) -> asio::awaitable<void> {
+auto sbot::tw::ChatRead::start(on_notify_fn callback) -> asio::awaitable<void> {
   m_callback = std::move(callback);
   co_await connect();
 }
 
-/*auto sbot::tw::Chat::pollIo() -> void {
-  while (m_conn_manager->getIoContext()->poll_one() != 0U) {
-  }
-}*/
-
-auto sbot::tw::Chat::connect() -> asio::awaitable<void> {
+auto sbot::tw::ChatRead::connect() -> asio::awaitable<void> {
+  LOG_CONTEXT("Twitch Chat Read");
   try {
     // Create async stream
     m_stream =
@@ -171,7 +115,7 @@ auto sbot::tw::Chat::connect() -> asio::awaitable<void> {
     }
     m_session_id = session_id;
 
-    LOG_INFO("[EventSub] session_id = {}", session_id);
+    LOG_INFO("session_id = {}", session_id);
 
     // Subscribe to channel.chat.message for your broadcaster_id
     json payload = {
@@ -193,19 +137,19 @@ auto sbot::tw::Chat::connect() -> asio::awaitable<void> {
 
     try {
       std::string resp = co_await httpsPostAsync(
-          m_cfg.helix_host, m_cfg.helix_port, "/helix/eventsub/subscriptions",
-          payload.dump(), headers);
+          m_conn_manager, m_cfg.helix_host, m_cfg.helix_port,
+          "/helix/eventsub/subscriptions", payload.dump(), headers);
 
-      LOG_INFO("[EventSub] subscription response: {}", resp);
+      LOG_INFO("Subscription response: {}", resp);
 
       // Parse the response to check if subscription was successful
       json sub_response = json::parse(resp);
       if (sub_response.contains("error")) {
-        LOG_ERROR("[EventSub] Subscription failed: {}", sub_response.dump());
+        LOG_ERROR("Subscription failed: {}", sub_response.dump());
         throw std::runtime_error("EventSub subscription failed");
       }
     } catch (const std::exception &e) {
-      LOG_ERROR("[EventSub] Exception during subscription: {}", e.what());
+      LOG_ERROR("Exception during subscription: {}", e.what());
       throw; // Re-throw to prevent silent failure
     }
 
@@ -216,12 +160,13 @@ auto sbot::tw::Chat::connect() -> asio::awaitable<void> {
 
     co_await doRead();
   } catch (const std::exception &ex) {
-    LOG_ERROR("[EventSub] Connection error: {}", ex.what());
+    LOG_ERROR("Connection error: {}", ex.what());
     throw;
   }
 }
 
-auto sbot::tw::Chat::doRead() -> asio::awaitable<void> {
+auto sbot::tw::ChatRead::doRead() -> asio::awaitable<void> {
+  LOG_CONTEXT("Twitch Chat Read");
   try {
     while (true) {
       auto bytes = co_await m_wss->async_read(m_buffer, asio::use_awaitable);
@@ -229,7 +174,7 @@ auto sbot::tw::Chat::doRead() -> asio::awaitable<void> {
       std::string msg = beast::buffers_to_string(m_buffer.data());
       m_buffer.consume(bytes);
 
-      LOG_INFO("[EventSub Raw] {}", msg);
+      LOG_DEBUG("{}", msg);
 
       if (m_callback) {
         m_callback(msg);
@@ -237,40 +182,18 @@ auto sbot::tw::Chat::doRead() -> asio::awaitable<void> {
     }
   } catch (const beast::system_error &ec) {
     if (ec.code() == ws::error::closed) {
-      LOG_WARN("[EventSub] WebSocket closed by server");
+      LOG_WARN("WebSocket closed by server");
     } else if (ec.code() == asio::error::operation_aborted) {
-      LOG_INFO("[EventSub] Read operation cancelled (normal during shutdown)");
+      LOG_INFO("Read operation cancelled (normal during shutdown)");
     } else {
-      LOG_ERROR("[EventSub] Read error: {}", ec.what());
+      LOG_ERROR("Read error: {}", ec.what());
     }
   } catch (const std::exception &ex) {
-    LOG_ERROR("[EventSub] Unexpected error in doRead: {}", ex.what());
+    LOG_ERROR("Unexpected error in doRead: {}", ex.what());
   }
 }
 
-/*void sbot::tw::Chat::sendChatMessage(const std::string &message,
-                                     const std::string &sender_id) {
-  // Helix chat/messages body
-  json body = {
-      {"broadcaster_id", m_cfg.broadcaster_id},
-      {"message",        message             },
-      {"sender_id",      sender_id           }
-  };
-
-  std::string token = stripOauthPrefix(m_cfg.access_token);
-  std::vector<std::pair<std::string, std::string>> headers = {
-      {"Client-Id",     m_cfg.client_id  },
-      {"Authorization", "Bearer " + token}
-  };
-
-  std::string resp = co_await httpsPostAsync(
-      m_cfg.helix_host, m_cfg.helix_port,
-      "/helix/chat/messages", body.dump(), headers);
-
-  LOG_INFO("[Helix chat/send] resp: {}", resp);
-}*/
-
-void sbot::tw::Chat::reconnect() {
+void sbot::tw::ChatRead::reconnect() {
   if (m_wss) {
     beast::error_code ec;
     m_wss->close(ws::close_code::normal, ec);
@@ -279,8 +202,9 @@ void sbot::tw::Chat::reconnect() {
   connect();
 }
 
-auto sbot::tw::Chat::shutdown() -> asio::awaitable<void> {
-  LOG_INFO("Shutting down Chat connection");
+auto sbot::tw::ChatRead::shutdown() -> asio::awaitable<void> {
+  LOG_CONTEXT("Twitch Chat Read");
+  LOG_TRACE("Shutting down Chat connection");
   if (m_wss) {
     try {
       // Send close frame and wait for server to respond

@@ -24,7 +24,9 @@ sbot::core::ConnectionManager::ConnectionManager(std::size_t thread_count)
       m_ssl_context{std::make_shared<ssl::context>(ssl::context::tls_client)},
       m_resolver{std::make_shared<tcp::resolver>(*m_io_context)},
       m_thread_count{thread_count} {
+
   LOG_CONTEXT("ConnectionManager");
+
   m_ssl_context->set_options(ssl::context::default_workarounds |
                              ssl::context::no_sslv2 | ssl::context::no_sslv3 |
                              ssl::context::no_tlsv1 | ssl::context::no_tlsv1_1);
@@ -87,6 +89,8 @@ auto sbot::core::ConnectionManager::makeSslStreamAsync(std::string const &host,
                                                        std::string const &port)
     -> asio::awaitable<std::unique_ptr<
         boost::beast::ssl_stream<boost::asio::ip::tcp::socket>>> {
+
+  LOG_CONTEXT("ConnectionManager");
 
   auto stream = std::make_unique<beast::ssl_stream<tcp::socket>>(
       *m_io_context, *m_ssl_context);
