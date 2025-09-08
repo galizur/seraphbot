@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Modified meson.build to prefer system libraries first, fall back to subprojects if they can't be found
 - Boost version is pinned to a specific tested version.
 - spdlog will compile accordingly depending of if `libc++` was found or not
+- ImGui now points to my personal fork that just has a `meson.build` file for easy building
+
+### Added
+- boost is now pinned to version 1.88 and falls back to that tag for building when needed
 
 ### Fixed
 - Windows builds fall back to `c++latest` and if all fail they fall back to `c++20`

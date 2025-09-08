@@ -44,7 +44,7 @@ A modern C++23 Twitch bot with real-time EventSub integration, chat moderation, 
 - **Boost** (ASIO, Beast, Process)
 - **OpenGL** 4.6+
 - **GLFW** 3.3+
-- **ImGui** (docking branch)
+- **ImGui** (docking branch - personal repo has a meson file for easy building)
 - **spdlog** 1.12+
 - **nlohmann/json** 3.11+
 - **OpenSSL** 3.0+
