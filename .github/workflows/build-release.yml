@@ -27,16 +27,16 @@ jobs:
 
       - name: Configure build
         run: |
-          meson setup builddir --native-file=native-linux.ini --buildtype=release
+          meson setup build --native-file=debug-linux-clang.ini --buildtype=debug
 
       - name: Build
         run: |
-          meson compile -C builddir
+          meson compile -C build
 
       - name: Package binary
         run: |
           mkdir -p release
-          cp builddir/seraphbot release/
+          cp build/seraphbot release/
           cp README.md release/
           cp LICENSE release/
           tar -czf seraphbot-linux-x86_64.tar.gz -C release .
@@ -72,16 +72,16 @@ jobs:
 
       - name: Configure build
         run: |
-          meson setup builddir --native-file=debug-linux-gcc.ini --buildtype=debug
+          meson setup build --native-file=debug-linux-gcc.ini --buildtype=debug
 
       - name: Build
         run: |
-          meson compile -C builddir
+          meson compile -C build
 
       - name: Package binary
         run: |
           mkdir -p release
-          cp builddir/seraphbot release/
+          cp build/seraphbot release/
           cp README.md release/
           cp LICENSE release/
           tar -czf seraphbot-linux-gcc-x86_64.tar.gz -C release .
@@ -124,16 +124,16 @@ jobs:
 
       - name: Configure build
         run: |
-          meson setup builddir --native-file=debug-windows.ini --buildtype=debug
+          meson setup build --native-file=debug-windows.ini --buildtype=debug
 
       - name: Build
         run: |
-          meson compile -C builddir
+          meson compile -C build
 
       - name: Package binary
         run: |
           mkdir release
-          copy builddir\seraphbot.exe release\
+          copy build\seraphbot.exe release\
           copy README.md release\
           copy LICENSE release\
           powershell Compress-Archive -Path release\* -DestinationPath seraphbot-windows-x86_64.zip
