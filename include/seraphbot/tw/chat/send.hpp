@@ -1,5 +1,5 @@
-#ifndef SBOT_TW_CHAT_WRITE_HPP
-#define SBOT_TW_CHAT_WRITE_HPP
+#ifndef SBOT_TW_CHAT_SEND_HPP
+#define SBOT_TW_CHAT_SEND_HPP
 
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/tw/config.hpp"
@@ -10,15 +10,14 @@
 #include <utility>
 #include <vector>
 
-namespace sbot::tw {
+namespace sbot::tw::chat {
 
-class ChatWrite {
+class Send {
 public:
-  ChatWrite(std::shared_ptr<core::ConnectionManager> conn_manager,
-            ClientConfig cfg);
-  ~ChatWrite();
+  Send(std::shared_ptr<core::ConnectionManager> conn_manager, ClientConfig cfg);
+  ~Send();
 
-  auto sendChatMessage(const std::string &message, const std::string &sender_id)
+  auto message(const std::string &msg, const std::string &sender_id)
       -> boost::asio::awaitable<void>;
 
 private:
@@ -26,6 +25,6 @@ private:
   ClientConfig m_cfg;
 };
 
-} // namespace sbot::tw
+} // namespace sbot::tw::chat
 
 #endif

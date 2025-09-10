@@ -11,14 +11,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Boost version is pinned to a specific tested version.
 - spdlog will compile accordingly depending of if `libc++` was found or not
 - ImGui now points to my personal fork that just has a `meson.build` file for easy building
+- Listed all scopes used (or will be used)
+- Moved to a centralized EventSub class and all other subscriptions will use this to request to subscribe to Twitch features
 
 ### Added
 - boost is now pinned to version 1.88 and falls back to that tag for building when needed
+- More scopes in the authentication server
+- Bot authentication endpoint in authentication server
+- Clarify authentication server privacy
 
 ### Fixed
 - Windows builds fall back to `c++latest` and if all fail they fall back to `c++20`
 
-## [0.1.0] - 2025-09-08
+## [0.1.0-alpha.1] - 2025-09-08
 ### Added
 - Initial Twitch chat bot implementation
 - OAuth authentication with Twitch

@@ -1,6 +1,7 @@
 tw_sources = files(
   'auth.cpp',
-  'chat_read.cpp',
-  'chat_write.cpp',
+  'eventsub.cpp',
+  'chat/read.cpp',
+  'chat/send.cpp',
   'config.cpp'
   )

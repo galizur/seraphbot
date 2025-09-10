@@ -1,5 +1,5 @@
-#ifndef SBOT_TW_CHAT_READ_HPP
-#define SBOT_TW_CHAT_READ_HPP
+#ifndef SBOT_TW_EVENTSUB_HPP
+#define SBOT_TW_EVENTSUB_HPP
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -9,23 +9,31 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
+#include <string_view>
 
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/tw/config.hpp"
 
 namespace sbot::tw {
 
-class ChatRead {
+class EventSub {
 public:
   using on_notify_fn = std::function<void(const std::string &json_text)>;
 
-  ChatRead(std::shared_ptr<core::ConnectionManager> conn_manager, ClientConfig cfg);
-  ~ChatRead();
+  EventSub(std::shared_ptr<core::ConnectionManager> conn_manager,
+           ClientConfig cfg);
+  ~EventSub();
 
   auto start(on_notify_fn callback) -> boost::asio::awaitable<void>;
-
+  auto subscribe(nlohmann::json subscription_request)
+      -> boost::asio::awaitable<void>;
   auto shutdown() -> boost::asio::awaitable<void>;
+
+auto getSessionId() -> std::string {  return m_session_id; }
+auto getTwitchConfig() -> ClientConfig { return m_cfg; }
+
 private:
   auto connect() -> boost::asio::awaitable<void>;
   auto reconnect() -> void;

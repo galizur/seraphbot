@@ -5,17 +5,6 @@ project(
     default_options: ['warning_level=3', 'werror=false', 'cpp_std=c++23,c++latest,c++20'],
 )
 
-# System libraries
-dl_dep = dependency('dl', required: false)
-openssl_dep = dependency('openssl', version: '>=3.5.2', required: true)
-boost_head_dep = dependency('boost', version: '=1.88.0', required: true)
-boost_dep = dependency('boost', modules: ['process'], version: '=1.88.0', required: false)
-spdlog_dep = dependency('spdlog', version: '>=1.15.3', required: not using_libcxx)
-nlohmann_dep = dependency('nlohmann_json', version: '>=3.12', required: true)
-thread_dep = dependency('threads', required: true)
-glfw_dep = dependency('glfw3', version: '>=3.4.0', required: true)
-gl_dep = dependency('gl', required: true)
-
 # Libc++ detection
 cpp_args = get_option('cpp_args')
 cpp_link_args = get_option('cpp_link_args')
@@ -34,6 +23,17 @@ if not using_libcxx
     endif
   endforeach
 endif
+
+# System libraries
+dl_dep = dependency('dl', required: false)
+openssl_dep = dependency('openssl', version: '>=3.5.2', required: true)
+boost_head_dep = dependency('boost', version: '=1.88.0', required: true)
+boost_dep = dependency('boost', modules: ['process'], version: '=1.88.0', required: false)
+spdlog_dep = dependency('spdlog', version: '>=1.15.3', required: not using_libcxx)
+nlohmann_dep = dependency('nlohmann_json', version: '>=3.12', required: true)
+thread_dep = dependency('threads', required: true)
+glfw_dep = dependency('glfw3', version: '>=3.4.0', required: true)
+gl_dep = dependency('gl', required: true)
 
 # Subprojects
 imgui_proj = subproject('imgui', default_options: 'default_library=static')
