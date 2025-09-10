@@ -1,8 +1,9 @@
 #include "seraphbot/core/app_state.hpp"
 #include "seraphbot/core/logging.hpp"
 #include "seraphbot/tw/auth.hpp"
-#include "seraphbot/tw/chat_read.hpp"
-#include "seraphbot/tw/chat_write.hpp"
+#include "seraphbot/tw/chat/read.hpp"
+#include "seraphbot/tw/chat/send.hpp"
+#include "seraphbot/tw/eventsub.hpp"
 #include "seraphbot/ui/imgui_backend_opengl.hpp"
 #include "seraphbot/ui/imgui_manager.hpp"
 
@@ -76,6 +77,7 @@ auto initWindowVulkan(int width = 1280, int height = 720) -> GLFWwindow * {
 
 auto main() -> int {
   sbot::core::Logger::init({});
+  sbot::core::Logger::instance().setLevel(sbot::core::LogLevel::Trace);
   LOG_CONTEXT("Main");
   LOG_INFO("SeraphBot starting...");
 
@@ -93,8 +95,9 @@ auto main() -> int {
 
   sbot::tw::Auth twitch_auth(connection, "seraphbot-oauth-server.onrender.com");
   sbot::tw::ClientConfig twitch_config;
-  std::unique_ptr<sbot::tw::ChatRead> twitch_client;
-  std::unique_ptr<sbot::tw::ChatWrite> twitch_write;
+  std::shared_ptr<sbot::tw::EventSub> eventsub;
+  std::unique_ptr<sbot::tw::chat::Read> twitch_read;
+  std::unique_ptr<sbot::tw::chat::Send> twitch_send;
   // Main loop
   LOG_INFO("Entering main loop");
   while (!glfwWindowShouldClose(window)) {
@@ -142,11 +145,11 @@ auto main() -> int {
       static char message_buffer[512] = "";
       if (ImGui::InputText("Send", message_buffer, sizeof(message_buffer),
                            ImGuiInputTextFlags_EnterReturnsTrue)) {
-        if (strlen(message_buffer) > 0 && twitch_write) {
+        if (strlen(message_buffer) > 0 && twitch_send) {
           boost::asio::co_spawn(
               *connection->getIoContext(),
-              twitch_write->sendChatMessage(message_buffer,
-                                            twitch_config.broadcaster_id),
+              twitch_send->message(message_buffer,
+                                   twitch_config.broadcaster_id),
               boost::asio::detached);
           message_buffer[0] = '\0'; // clear input
         }
@@ -193,16 +196,17 @@ auto main() -> int {
     if (app_state.wants_eventsub && app_state.is_logged_in &&
         !app_state.eventsub_active) {
       try {
-        twitch_client =
-            std::make_unique<sbot::tw::ChatRead>(connection, twitch_config);
-        twitch_write =
-            std::make_unique<sbot::tw::ChatWrite>(connection, twitch_config);
+        eventsub =
+            std::make_shared<sbot::tw::EventSub>(connection, twitch_config);
+        twitch_read = std::make_unique<sbot::tw::chat::Read>(eventsub);
+        twitch_send =
+            std::make_unique<sbot::tw::chat::Send>(connection, twitch_config);
         auto app_state_ptr =
             std::make_shared<sbot::core::AppState *>(&app_state);
         // start async connection *runs on thread pool)
         boost::asio::co_spawn(
             *connection->getIoContext(),
-            twitch_client->start([app_state_ptr](std::string const &msg) {
+            eventsub->start([app_state_ptr](std::string const &msg) {
               LOG_INFO("[Callback] Received message on thread, length: {}",
                        msg.length());
               try {
@@ -244,19 +248,27 @@ auto main() -> int {
             boost::asio::detached);
         app_state.eventsub_active = true;
         app_state.wants_eventsub  = false;
+        app_state.wants_chat      = true;
       } catch (const std::exception &e) {
         LOG_ERROR("Twitch eventsub failed: {}", e.what());
       }
+    }
+    if (app_state.eventsub_active && !app_state.chat_active &&
+        app_state.wants_chat) {
+      LOG_INFO("Adding chat read to subscriptions");
+      twitch_read->request();
+      app_state.wants_chat  = false;
+      app_state.chat_active = true;
     }
 
     glfwSwapBuffers(window);
   }
   LOG_INFO("Main loop ending, shutting down gracefully");
   // Shutdown twitch client gracefully
-  if (twitch_client && app_state.eventsub_active) {
+  if (eventsub && app_state.eventsub_active) {
     try {
       LOG_INFO("Shutting down Twitch client");
-      auto shutdown_task = twitch_client->shutdown();
+      auto shutdown_task = eventsub->shutdown();
       auto timeout_timer = boost::asio::steady_timer(
           *connection->getIoContext(), std::chrono::seconds(3));
       bool shutdown_completed = false;
@@ -264,7 +276,7 @@ auto main() -> int {
           *connection->getIoContext(),
           [&]() -> boost::asio::awaitable<void> {
             try {
-              co_await twitch_client->shutdown();
+              co_await eventsub->shutdown();
               shutdown_completed = true;
               LOG_INFO("Twitch client shutdown completed");
             } catch (const std::exception &err) {
@@ -287,7 +299,9 @@ auto main() -> int {
       LOG_ERROR("Error during Twitch client shutdown: {}", err.what());
     }
   }
-  twitch_client.reset();
+  twitch_send.reset();
+  twitch_read.reset();
+  eventsub.reset();
   app_state.eventsub_active = false;
   LOG_INFO("Starting connection manager shutdown");
 

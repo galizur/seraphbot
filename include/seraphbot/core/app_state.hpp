@@ -23,10 +23,12 @@ struct AppState {
 
   bool wants_login{false};
   bool wants_eventsub{false};
+  bool wants_chat{false};
   bool wants_logout{false};
 
   bool is_logged_in{false};
   bool eventsub_active{false};
+  bool chat_active{false};
 
   std::deque<ChatMessage> chat_log;
 

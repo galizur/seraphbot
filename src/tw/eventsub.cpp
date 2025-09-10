@@ -1,13 +1,17 @@
-#include "seraphbot/tw/chat_read.hpp"
+#include "seraphbot/tw/eventsub.hpp"
 
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/core/logging.hpp"
+#include "seraphbot/tw/config.hpp"
 
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/co_spawn.hpp>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/impl/co_spawn.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/error.hpp>
@@ -38,6 +42,7 @@
 #include <openssl/tls1.h>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -51,25 +56,21 @@ using tcp       = asio::ip::tcp;
 using json      = nlohmann::json;
 } // namespace
 
-sbot::tw::ChatRead::ChatRead(
+sbot::tw::EventSub::EventSub(
     std::shared_ptr<core::ConnectionManager> conn_manager, ClientConfig cfg)
     : m_cfg{std::move(cfg)}, m_conn_manager{std::move(conn_manager)} {
-  LOG_CONTEXT("Twitch Chat Read");
+  LOG_CONTEXT("Twitch EventSub");
   LOG_TRACE("Initializing");
 }
 
-sbot::tw::ChatRead::~ChatRead() {
-  LOG_CONTEXT("Twitch Chat Read");
-  LOG_TRACE("Destructor called");
-}
+sbot::tw::EventSub::~EventSub() { LOG_TRACE("Shutting down"); }
 
-auto sbot::tw::ChatRead::start(on_notify_fn callback) -> asio::awaitable<void> {
+auto sbot::tw::EventSub::start(on_notify_fn callback) -> asio::awaitable<void> {
   m_callback = std::move(callback);
   co_await connect();
 }
 
-auto sbot::tw::ChatRead::connect() -> asio::awaitable<void> {
-  LOG_CONTEXT("Twitch Chat Read");
+auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
   try {
     // Create async stream
     m_stream =
@@ -117,16 +118,78 @@ auto sbot::tw::ChatRead::connect() -> asio::awaitable<void> {
 
     LOG_INFO("session_id = {}", session_id);
 
-    // Subscribe to channel.chat.message for your broadcaster_id
-    json payload = {
-        {"type",      "channel.chat.message"                               },
-        {"version",   "1"                                                  },
-        {"condition",
-         {{"broadcaster_user_id", m_cfg.broadcaster_id},
-          {"user_id", m_cfg.broadcaster_id}}                               },
-        {"transport", {{"method", "websocket"}, {"session_id", session_id}}}
+    // Temporary for testing:
+    json condition = {
+        {"broadcaster_user_id", m_cfg.broadcaster_id},
+        {"user_id",             m_cfg.broadcaster_id}
     };
 
+    json transport = {
+        {"method",     "websocket" },
+        {"session_id", m_session_id}
+    };
+
+    // Subscript to channel.chat.notification
+    json payload = {
+        {"type",      "channel.chat.notification"},
+        {"version",   "1"                        },
+        // Why 1? Where had I see 2?
+        {"condition", condition                  },
+        {"transport", transport                  }
+    };
+    // Subscribe to channel.chat.message for your broadcaster_id
+    // json payload = {
+    //     {"type",      "channel.chat.message" },
+    //     {"version",   "1" },
+    //     {"condition",
+    //      {{"broadcaster_user_id", m_cfg.broadcaster_id},
+    //       {"user_id", m_cfg.broadcaster_id}} },
+    //     {"transport", {{"method", "websocket"}, {"session_id",
+    //     session_id}}}
+    // };
+    co_await subscribe(payload);
+    // std::string token = stripOauthPrefix(m_cfg.access_token);
+
+    // std::vector<std::pair<std::string, std::string>> headers = {
+    //     {"Client-Id",     m_cfg.client_id   },
+    //     {"Authorization", "Bearer " + token },
+    //     {"Content-Type",  "application/json"}
+    // };
+
+    // try {
+    //   std::string resp = co_await httpsPostAsync(
+    //       m_conn_manager, m_cfg.helix_host, m_cfg.helix_port,
+    //       "/helix/eventsub/subscriptions", payload.dump(), headers);
+
+    //   LOG_INFO("Subscription response: {}", resp);
+
+    //   // Parse the response to check if subscription was successful
+    //   json sub_response = json::parse(resp);
+    //   if (sub_response.contains("error")) {
+    //     LOG_ERROR("Subscription failed: {}", sub_response.dump());
+    //     throw std::runtime_error("EventSub subscription failed");
+    //   }
+    // } catch (const std::exception &e) {
+    //   LOG_ERROR("Exception during subscription: {}", e.what());
+    //   throw; // Re-throw to prevent silent failure
+    // }
+
+    // // Optionally wait a bit for subscription to activate
+    // co_await asio::steady_timer{*m_conn_manager->getIoContext(),
+    //                             std::chrono::milliseconds(300)}
+    //     .async_wait(asio::use_awaitable);
+
+    asio::co_spawn(*m_conn_manager->getIoContext(), doRead(), asio::detached);
+    // co_await doRead();
+  } catch (const std::exception &ex) {
+    LOG_ERROR("Connection error: {}", ex.what());
+    throw;
+  }
+}
+
+auto sbot::tw::EventSub::subscribe(json subscription_request)
+    -> asio::awaitable<void> {
+  try {
     std::string token = stripOauthPrefix(m_cfg.access_token);
 
     std::vector<std::pair<std::string, std::string>> headers = {
@@ -138,7 +201,8 @@ auto sbot::tw::ChatRead::connect() -> asio::awaitable<void> {
     try {
       std::string resp = co_await httpsPostAsync(
           m_conn_manager, m_cfg.helix_host, m_cfg.helix_port,
-          "/helix/eventsub/subscriptions", payload.dump(), headers);
+          "/helix/eventsub/subscriptions", subscription_request.dump(),
+          headers);
 
       LOG_INFO("Subscription response: {}", resp);
 
@@ -157,15 +221,13 @@ auto sbot::tw::ChatRead::connect() -> asio::awaitable<void> {
     co_await asio::steady_timer{*m_conn_manager->getIoContext(),
                                 std::chrono::milliseconds(300)}
         .async_wait(asio::use_awaitable);
-
-    co_await doRead();
   } catch (const std::exception &ex) {
     LOG_ERROR("Connection error: {}", ex.what());
     throw;
   }
 }
 
-auto sbot::tw::ChatRead::doRead() -> asio::awaitable<void> {
+auto sbot::tw::EventSub::doRead() -> asio::awaitable<void> {
   LOG_CONTEXT("Twitch Chat Read");
   try {
     while (true) {
@@ -193,7 +255,7 @@ auto sbot::tw::ChatRead::doRead() -> asio::awaitable<void> {
   }
 }
 
-void sbot::tw::ChatRead::reconnect() {
+void sbot::tw::EventSub::reconnect() {
   if (m_wss) {
     beast::error_code ec;
     m_wss->close(ws::close_code::normal, ec);
@@ -202,7 +264,7 @@ void sbot::tw::ChatRead::reconnect() {
   connect();
 }
 
-auto sbot::tw::ChatRead::shutdown() -> asio::awaitable<void> {
+auto sbot::tw::EventSub::shutdown() -> asio::awaitable<void> {
   LOG_CONTEXT("Twitch Chat Read");
   LOG_TRACE("Shutting down Chat connection");
   if (m_wss) {
