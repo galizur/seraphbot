@@ -35,7 +35,7 @@ jobs:
                 subprojects/packagefiles
                 subprojects/*.wrap
                 build/subprojects
-          key: meson-deps-v2-${{ hashFiles('subprojects/*.wrap', 'meson.build', 'build-release.yml') }}
+          key: meson-deps-v3-${{ hashFiles('subprojects/*.wrap', 'meson.build', 'build-release.yml') }}
           restore-keys: |
                         meson-deps-v2-
                         meson-deps-
@@ -58,7 +58,6 @@ jobs:
       - name: Install Meson wrap dependencies
         run: |
              meson wrap install openssl
-             meson wrap install spdlog
              meson wrap install nlohmann_json
              meson wrap install glfw
 
@@ -107,7 +106,7 @@ jobs:
           path: |
                 ${{ env.VCPKG_ROOT }}/installed
                 ${{ env.VCPKG_ROOT }}/packages
-          key: vcpkg-v2-${{ runner.os }}-${{ hashFiles('**/vcpkg.json', '**/*.vcpkg') }}
+          key: vcpkg-v3-${{ runner.os }}-${{ hashFiles('**/vcpkg.json', '**/*.vcpkg') }}
 
       - name: Install dependencies
         run: |

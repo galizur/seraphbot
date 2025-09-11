@@ -27,19 +27,6 @@
 #include "seraphbot/ui/imgui_manager.hpp"
 
 auto hexToImVec4 = [](const std::string &hex) -> ImVec4 {
-  // unsigned int red   = 0;
-  // unsigned int green = 0;
-  // unsigned int blue  = 0;
-  // unsigned int alpha = 255;
-  // if (hex.size() == 7 || hex.size() == 9) {
-  //   sscanf(hex.c_str(), "#%02x%02x%02x", &red, &green, &blue);
-  //   if (hex.size() == 9) {
-  //     unsigned int alpha_temp{};
-  //     sscanf(hex.c_str() + 7, "%02x", &alpha_temp);
-  //     alpha = alpha_temp;
-  //   }
-  // }
-  // return {red / 255.0F, green / 255.0F, blue / 255.0F, alpha / 255.0F};
   if (hex.size() < 7 || hex.at(0) != '#') {
     return {0.0F, 0.0F, 0.0F, 1.0F};
   }

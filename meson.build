@@ -5,6 +5,8 @@ project(
     default_options: ['warning_level=3', 'werror=false', 'cpp_std=c++23,c++latest,c++20'],
 )
 
+add_project_arguments('-DIMGUI_IMPL_OPENGL_LOADER_CUSTOM', language: 'cpp')
+
 # Libc++ detection
 cpp_args = get_option('cpp_args')
 cpp_link_args = get_option('cpp_link_args')
