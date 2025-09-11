@@ -3,9 +3,5 @@
         "boost-asio",
         "boost-beast",
         "boost-process",
-        "glfw3",
-        "spdlog",
-        "nlohmann-json",
-        "openssl"
     ]
 }

@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - Windows builds fall back to `c++latest` and if all fail they fall back to `c++20`
+- Switched to wrap files and lowered OpenSSL version requirement, so they are self contained.
 
 ## [0.1.0-alpha.1] - 2025-09-08
 ### Added

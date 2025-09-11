@@ -26,7 +26,7 @@ endif
 
 # System libraries
 dl_dep = dependency('dl', required: false)
-openssl_dep = dependency('openssl', version: '>=3.5.2', required: true)
+openssl_dep = dependency('openssl', version: '>=3.0.8', required: true)
 boost_head_dep = dependency('boost', version: '=1.88.0', required: true)
 boost_dep = dependency('boost', modules: ['process'], version: '=1.88.0', required: false)
 spdlog_dep = dependency('spdlog', version: '>=1.15.3', required: not using_libcxx)
