@@ -19,7 +19,7 @@ jobs:
           sudo apt update
           sudo apt install -y clang libc++-dev libc++abi-dev meson ninja-build \
                libwayland-dev wayland-protocols libxkbcommon-dev \
-               libgl1-mesa-dev libegl1-mesa-dev \
+               libgl1-mesa-dev libegl1-mesa-dev
 
       - name: Cache Boost
         uses: actions/cache@v4
@@ -32,8 +32,13 @@ jobs:
         with:
           path: |
                 subprojects/packagecache
+                subprojects/packagefiles
+                subprojects/*.wrap
                 build/subprojects
-          key: meson-deps-${{ hashFiles('subprojects/*.wrap', 'meson.build') }}
+          key: meson-deps-v2-${{ hashFiles('subprojects/*.wrap', 'meson.build', 'build-release.yml') }}
+          restore-keys: |
+                        meson-deps-v2-
+                        meson-deps-
 
       - name: Install Boost (if not cached)
         run: |
@@ -50,20 +55,11 @@ jobs:
              python -m pip install --upgrade pip
              pip install meson ninja
 
-      - name: Install OpenSSL
+      - name: Install Meson wrap dependencies
         run: |
              meson wrap install openssl
-
-      - name: Install spdlog
-        run: |
              meson wrap install spdlog
-
-      - name: Install nlohmann-json
-        run: |
              meson wrap install nlohmann_json
-
-      - name: Install GLFW
-        run: |
              meson wrap install glfw
 
       - name: Configure build
@@ -111,7 +107,7 @@ jobs:
           path: |
                 ${{ env.VCPKG_ROOT }}/installed
                 ${{ env.VCPKG_ROOT }}/packages
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json', '**/*.vcpkg') }}
+          key: vcpkg-v2-${{ runner.os }}-${{ hashFiles('**/vcpkg.json', '**/*.vcpkg') }}
 
       - name: Install dependencies
         run: |
@@ -126,20 +122,11 @@ jobs:
         run: |
           pip install meson ninja
 
-      - name: Install OpenSSL
+      - name: Install Meson wrap dependencies
         run: |
              meson wrap install openssl
-
-      - name: Install spdlog
-        run: |
              meson wrap install spdlog
-
-      - name: Install nlohmann-json
-        run: |
              meson wrap install nlohmann_json
-
-      - name: Install GLFW
-        run: |
              meson wrap install glfw
 
       - name: Configure build
