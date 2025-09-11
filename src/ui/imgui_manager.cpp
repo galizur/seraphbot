@@ -14,6 +14,9 @@ sbot::ui::ImGuiManager::ImGuiManager(std::unique_ptr<ImGuiBackend> backend,
 : state{appstate}, m_backend{std::move(backend)}, m_window{window} {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
+  ImGuiIO &io = ImGui::GetIO();
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   ImGui::StyleColorsDark();
   m_backend->init(m_window);
 }

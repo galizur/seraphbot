@@ -68,7 +68,8 @@ sbot::tw::EventSub::~EventSub() { LOG_TRACE("Shutting down"); }
 
 auto sbot::tw::EventSub::start(on_notify_fn callback) -> asio::awaitable<void> {
   m_callback = std::move(callback);
-  co_await connect();
+  // co_await connect();
+  co_return;
 }
 
 auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
@@ -77,13 +78,28 @@ auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
     m_stream =
         co_await m_conn_manager->makeSslStreamAsync(m_cfg.host, m_cfg.port);
 
-    // Async SSL handshake
+    // // Async SSL handshake
     co_await m_stream->async_handshake(ssl::stream_base::client,
                                        asio::use_awaitable);
 
-    // // Now upgrade to websocket over TLS
+    // auto socket = std::move(m_stream->next_layer());
+    // m_stream.reset();
+    // m_wss = std::make_unique<ws::stream<beast::ssl_stream<tcp::socket>>>(
+    //     std::move(socket), *m_conn_manager->getSslContext());
+    // // // Now upgrade to websocket over TLS
     m_wss = std::make_unique<ws::stream<beast::ssl_stream<tcp::socket>>>(
         std::move(*m_stream));
+    // beast::ssl_stream<tcp::socket>
+    // ssl_stream{*m_conn_manager->getIoContext(),
+    //                                           *m_conn_manager->getSslContext()};
+    // auto resolver      = m_conn_manager->getResolver();
+    // auto const results = co_await resolver->async_resolve(
+    //     m_cfg.host, m_cfg.port, asio::use_awaitable);
+    // co_await asio::async_connect(ssl_stream.next_layer(), results,
+    //                              asio::use_awaitable);
+    // co_await ssl_stream.async_handshake(ssl::stream_base::client,
+    //                                     asio::use_awaitable);
+    // m_wss.emplace(std::move(ssl_stream));
 
     // Set timeout options (optional)
     m_wss->set_option(
@@ -119,7 +135,27 @@ auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
 
     LOG_INFO("session_id = {}", session_id);
 
-    // Temporary for testing:
+    // co_await subscribe("channel.chat.notification", "1");
+
+    // asio::co_spawn(*m_conn_manager->getIoContext(), doRead(),
+    // asio::detached);
+  } catch (const std::exception &ex) {
+    LOG_ERROR("Connection error: {}", ex.what());
+    throw;
+  }
+}
+
+auto sbot::tw::EventSub::subscribe(std::string type, std::string version)
+    -> asio::awaitable<void> {
+  try {
+    std::string token = stripOauthPrefix(m_cfg.access_token);
+
+    std::vector<std::pair<std::string, std::string>> headers = {
+        {"Client-Id",     m_cfg.client_id   },
+        {"Authorization", "Bearer " + token },
+        {"Content-Type",  "application/json"}
+    };
+
     json condition = {
         {"broadcaster_user_id", m_cfg.broadcaster_id},
         {"user_id",             m_cfg.broadcaster_id}
@@ -131,34 +167,13 @@ auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
     };
 
     // Subscript to channel.chat.notification
-    json payload = {
-        {"type",      "channel.chat.notification"},
-        {"version",   "1"                        },
-        // Why 1? Where had I see 2?
-        {"condition", condition                  },
-        {"transport", transport                  }
+    json subscription_request = {
+        {"type",      type     },
+        {"version",   version  },
+        {"condition", condition},
+        {"transport", transport}
     };
-
-    co_await subscribe(payload);
-
-    asio::co_spawn(*m_conn_manager->getIoContext(), doRead(), asio::detached);
-  } catch (const std::exception &ex) {
-    LOG_ERROR("Connection error: {}", ex.what());
-    throw;
-  }
-}
-
-auto sbot::tw::EventSub::subscribe(json subscription_request)
-    -> asio::awaitable<void> {
-  try {
-    std::string token = stripOauthPrefix(m_cfg.access_token);
-
-    std::vector<std::pair<std::string, std::string>> headers = {
-        {"Client-Id",     m_cfg.client_id   },
-        {"Authorization", "Bearer " + token },
-        {"Content-Type",  "application/json"}
-    };
-
+    LOG_INFO("Subscription dump: {}", subscription_request.dump());
     try {
       std::string resp = co_await httpsPostAsync(
           m_conn_manager, m_cfg.helix_host, m_cfg.helix_port,
@@ -190,13 +205,17 @@ auto sbot::tw::EventSub::subscribe(json subscription_request)
 }
 
 auto sbot::tw::EventSub::doRead() -> asio::awaitable<void> {
-  LOG_CONTEXT("Twitch Chat Read");
+  LOG_DEBUG("Entering doRead");
+  if (!m_wss) {
+    LOG_ERROR("WebSocket not connected");
+    co_return;
+  }
   try {
-    while (true) {
-      auto bytes = co_await m_wss->async_read(m_buffer, asio::use_awaitable);
+    while (m_wss && m_wss->is_open()) {
+      co_await m_wss->async_read(m_buffer, asio::use_awaitable);
 
       std::string msg = beast::buffers_to_string(m_buffer.data());
-      m_buffer.consume(bytes);
+      m_buffer.consume(m_buffer.size());
 
       LOG_DEBUG("{}", msg);
 
@@ -223,11 +242,10 @@ void sbot::tw::EventSub::reconnect() {
     m_wss->close(ws::close_code::normal, err);
   }
   m_wss.reset();
-  connect();
+  asio::co_spawn(*m_conn_manager->getIoContext(), connect(), asio::detached);
 }
 
 auto sbot::tw::EventSub::shutdown() -> asio::awaitable<void> {
-  LOG_CONTEXT("Twitch Chat Read");
   LOG_TRACE("Shutting down Chat connection");
   if (m_wss) {
     try {
