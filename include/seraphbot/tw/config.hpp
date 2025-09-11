@@ -4,6 +4,7 @@
 #include <boost/asio/awaitable.hpp>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "seraphbot/core/connection_manager.hpp"
@@ -21,11 +22,10 @@ struct ClientConfig {
   std::string broadcaster_id; // user id of the channel you want events for
 };
 
-auto httpsPostAsync(
-    std::shared_ptr<core::ConnectionManager> conn_manager,
-    const std::string &host, const std::string &port, const std::string &target,
-    const std::string &body,
-    const std::vector<std::pair<std::string, std::string>> &headers)
+auto httpsPostAsync(std::shared_ptr<core::ConnectionManager> conn_manager,
+                    std::string host, std::string port, std::string target,
+                    std::string body,
+                    std::vector<std::pair<std::string, std::string>> headers)
     -> boost::asio::awaitable<std::string>;
 
 auto stripOauthPrefix(std::string token) -> std::string;

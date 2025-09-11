@@ -1,13 +1,17 @@
 #include "seraphbot/core/logging.hpp"
-#include "spdlog/common.h"
-#include "spdlog/sinks/basic_file_sink.h"
-#include "spdlog/sinks/rotating_file_sink.h"
-#include "spdlog/sinks/stdout_color_sinks.h"
-#include "spdlog/spdlog.h"
+#include "spdlog/logger.h"
+
+#include <cstddef>
 #include <memory>
 #include <mutex>
+#include <spdlog/common.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <string_view>
+#include <vector>
 
 auto sbot::core::Logger::instance() -> Logger & {
   static Logger instance;
@@ -48,9 +52,10 @@ auto sbot::core::Logger::log(sbot::core::LogLevel level,
     std::lock_guard lock{m_context_mutex};
     if (!m_context_stack.empty()) {
       std::string context_str = "[";
-      for (size_t i = 0; i < m_context_stack.size(); ++i) {
-        if (i > 0)
+      for (std::size_t i = 0; i < m_context_stack.size(); ++i) {
+        if (i > 0) {
           context_str += "::";
+        }
         context_str += m_context_stack[i];
       }
       context_str += "] ";

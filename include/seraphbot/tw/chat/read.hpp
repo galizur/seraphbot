@@ -13,7 +13,7 @@ public:
   Read(std::shared_ptr<EventSub> eventsub);
   ~Read();
 
-auto request() -> boost::asio::awaitable<void>;
+auto sendSubscription() -> boost::asio::awaitable<void>;
 
 private:
   std::shared_ptr<EventSub> m_eventsub;

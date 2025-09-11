@@ -70,9 +70,10 @@ private:
   auto requestTokenAsync() -> boost::asio::awaitable<void>;
   auto storeToken(const std::string &token) -> void;
   auto storeRefreshToken(const std::string &refresh_token) -> void;
-  auto getHttpAsync(const std::string &url)
-      -> boost::asio::awaitable<std::string>;
-  auto parseTwitchUser(const nlohmann::json &user_json) -> TwitchUserInfo;
+  auto getHttpAsync(std::string url) -> boost::asio::awaitable<std::string>;
+
+  static auto parseTwitchUser(const nlohmann::json &user_json)
+      -> TwitchUserInfo;
 };
 
 } // namespace sbot::tw

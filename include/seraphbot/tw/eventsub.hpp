@@ -11,7 +11,6 @@
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
-#include <string_view>
 
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/tw/config.hpp"
@@ -31,8 +30,8 @@ public:
       -> boost::asio::awaitable<void>;
   auto shutdown() -> boost::asio::awaitable<void>;
 
-auto getSessionId() -> std::string {  return m_session_id; }
-auto getTwitchConfig() -> ClientConfig { return m_cfg; }
+  auto getSessionId() -> std::string { return m_session_id; }
+  auto getTwitchConfig() -> ClientConfig { return m_cfg; }
 
 private:
   auto connect() -> boost::asio::awaitable<void>;

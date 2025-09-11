@@ -1,9 +1,5 @@
 #include "seraphbot/tw/eventsub.hpp"
 
-#include "seraphbot/core/connection_manager.hpp"
-#include "seraphbot/core/logging.hpp"
-#include "seraphbot/tw/config.hpp"
-
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/buffer.hpp>
@@ -13,6 +9,7 @@
 #include <boost/asio/error.hpp>
 #include <boost/asio/impl/co_spawn.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/stream_base.hpp>
@@ -23,6 +20,7 @@
 #include <boost/beast/core/buffers_to_string.hpp>
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/core/role.hpp>
 #include <boost/beast/core/string_type.hpp>
 #include <boost/beast/http/string_body.hpp>
 #include <boost/beast/http/verb.hpp>
@@ -46,10 +44,13 @@
 #include <utility>
 #include <vector>
 
+#include "seraphbot/core/connection_manager.hpp"
+#include "seraphbot/core/logging.hpp"
+#include "seraphbot/tw/config.hpp"
+
 namespace {
 namespace asio  = boost::asio;
 namespace beast = boost::beast;
-namespace http  = beast::http;
 namespace ws    = beast::websocket;
 namespace ssl   = asio::ssl;
 using tcp       = asio::ip::tcp;
@@ -105,10 +106,10 @@ auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
     LOG_INFO("WELCOME: {}", welcome);
 
     // Parse JSON and extract session.id
-    json j = json::parse(welcome);
+    json jsn = json::parse(welcome);
     std::string session_id;
     try {
-      session_id = j.at("payload").at("session").at("id").get<std::string>();
+      session_id = jsn.at("payload").at("session").at("id").get<std::string>();
     } catch (...) {
       LOG_ERROR("Failed to extract session.id from welcome message");
       throw std::runtime_error(
@@ -137,50 +138,10 @@ auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
         {"condition", condition                  },
         {"transport", transport                  }
     };
-    // Subscribe to channel.chat.message for your broadcaster_id
-    // json payload = {
-    //     {"type",      "channel.chat.message" },
-    //     {"version",   "1" },
-    //     {"condition",
-    //      {{"broadcaster_user_id", m_cfg.broadcaster_id},
-    //       {"user_id", m_cfg.broadcaster_id}} },
-    //     {"transport", {{"method", "websocket"}, {"session_id",
-    //     session_id}}}
-    // };
+
     co_await subscribe(payload);
-    // std::string token = stripOauthPrefix(m_cfg.access_token);
-
-    // std::vector<std::pair<std::string, std::string>> headers = {
-    //     {"Client-Id",     m_cfg.client_id   },
-    //     {"Authorization", "Bearer " + token },
-    //     {"Content-Type",  "application/json"}
-    // };
-
-    // try {
-    //   std::string resp = co_await httpsPostAsync(
-    //       m_conn_manager, m_cfg.helix_host, m_cfg.helix_port,
-    //       "/helix/eventsub/subscriptions", payload.dump(), headers);
-
-    //   LOG_INFO("Subscription response: {}", resp);
-
-    //   // Parse the response to check if subscription was successful
-    //   json sub_response = json::parse(resp);
-    //   if (sub_response.contains("error")) {
-    //     LOG_ERROR("Subscription failed: {}", sub_response.dump());
-    //     throw std::runtime_error("EventSub subscription failed");
-    //   }
-    // } catch (const std::exception &e) {
-    //   LOG_ERROR("Exception during subscription: {}", e.what());
-    //   throw; // Re-throw to prevent silent failure
-    // }
-
-    // // Optionally wait a bit for subscription to activate
-    // co_await asio::steady_timer{*m_conn_manager->getIoContext(),
-    //                             std::chrono::milliseconds(300)}
-    //     .async_wait(asio::use_awaitable);
 
     asio::co_spawn(*m_conn_manager->getIoContext(), doRead(), asio::detached);
-    // co_await doRead();
   } catch (const std::exception &ex) {
     LOG_ERROR("Connection error: {}", ex.what());
     throw;
@@ -217,9 +178,10 @@ auto sbot::tw::EventSub::subscribe(json subscription_request)
       throw; // Re-throw to prevent silent failure
     }
 
+    constexpr int c_wait{300};
     // Optionally wait a bit for subscription to activate
     co_await asio::steady_timer{*m_conn_manager->getIoContext(),
-                                std::chrono::milliseconds(300)}
+                                std::chrono::milliseconds(c_wait)}
         .async_wait(asio::use_awaitable);
   } catch (const std::exception &ex) {
     LOG_ERROR("Connection error: {}", ex.what());
@@ -257,8 +219,8 @@ auto sbot::tw::EventSub::doRead() -> asio::awaitable<void> {
 
 void sbot::tw::EventSub::reconnect() {
   if (m_wss) {
-    beast::error_code ec;
-    m_wss->close(ws::close_code::normal, ec);
+    beast::error_code err;
+    m_wss->close(ws::close_code::normal, err);
   }
   m_wss.reset();
   connect();
