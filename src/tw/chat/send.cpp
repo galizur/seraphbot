@@ -12,14 +12,12 @@
 #include <boost/beast/http/status.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <string>
 
 namespace {
-namespace asio  = boost::asio;
-namespace beast = boost::beast;
-namespace http  = beast::http;
-namespace ssl   = asio::ssl;
-using tcp       = asio::ip::tcp;
-using json      = nlohmann::json;
+namespace asio = boost::asio;
+using tcp      = asio::ip::tcp;
+using json     = nlohmann::json;
 } // namespace
 
 sbot::tw::chat::Send::Send(
@@ -31,8 +29,7 @@ sbot::tw::chat::Send::Send(
 
 sbot::tw::chat::Send::~Send() { LOG_TRACE("Destructor called"); }
 
-auto sbot::tw::chat::Send::message(const std::string &msg,
-                                   const std::string &sender_id)
+auto sbot::tw::chat::Send::message(std::string msg, std::string sender_id)
     -> asio::awaitable<void> {
   // Helix chat/messages body
   json body = {

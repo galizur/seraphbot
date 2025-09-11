@@ -8,14 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - Defaulted builds to preferred library type (on Linux usually shared libraries)
 - Modified meson.build to prefer system libraries first, fall back to subprojects if they can't be found
-- Boost version is pinned to a specific tested version.
-- spdlog will compile accordingly depending of if `libc++` was found or not
-- ImGui now points to my personal fork that just has a `meson.build` file for easy building
+- `Boost` version is pinned to a specific tested version.
+- `spdlog` will compile accordingly depending of if `libc++` was found or not
+- `ImGui` now points to my personal fork that just has a `meson.build` file for easy building
 - Listed all scopes used (or will be used)
-- Moved to a centralized EventSub class and all other subscriptions will use this to request to subscribe to Twitch features
+- Moved to a centralized `EventSub` class and all other subscriptions will use this to request to subscribe to Twitch features
+- Also moved most Twitch functionality under a `TwitchService` class to better control the flow of operations
+- Add some helper classes
+- Simplified `ImGui` slightly and thus the main function (still needs a lot of work)
+- Enabled docking feature of `ImGui`
 
 ### Added
-- boost is now pinned to version 1.88 and falls back to that tag for building when needed
+- `Boost` is now pinned to version 1.88 and falls back to that tag for building when needed
 - More scopes in the authentication server
 - Bot authentication endpoint in authentication server
 - Clarify authentication server privacy

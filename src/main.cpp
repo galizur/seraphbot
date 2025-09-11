@@ -1,14 +1,13 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
+#include <array>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <chrono>
-#include <cstdio>
 #include <cstdlib>
-#include <exception>
 #include <imgui.h>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -17,15 +16,13 @@
 #include <string_view>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "seraphbot/core/app_state.hpp"
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/core/logging.hpp"
+#include "seraphbot/core/twitch_service.hpp"
 #include "seraphbot/tw/auth.hpp"
-#include "seraphbot/tw/chat/read.hpp"
-#include "seraphbot/tw/chat/send.hpp"
-#include "seraphbot/tw/config.hpp"
-#include "seraphbot/tw/eventsub.hpp"
 #include "seraphbot/ui/imgui_backend_opengl.hpp"
 #include "seraphbot/ui/imgui_manager.hpp"
 
@@ -109,18 +106,24 @@ auto main() -> int {
   sbot::core::AppState app_state;
 
   LOG_INFO("Selecting OpenGL backend");
-  auto backend = std::make_unique<sbot::ui::ImGuiBackendOpenGL>();
+  auto backend{std::make_unique<sbot::ui::ImGuiBackendOpenGL>()};
   LOG_INFO("Initializing GUI manager");
   sbot::ui::ImGuiManager imgui_manager(std::move(backend), app_state, window);
 
   auto connection{std::make_shared<sbot::core::ConnectionManager>(2)};
+  auto twitch_service{std::make_unique<sbot::core::TwitchService>(connection)};
 
-  sbot::tw::Auth twitch_auth(connection, "seraphbot-oauth-server.onrender.com");
-  sbot::tw::ClientConfig twitch_config;
-  std::shared_ptr<sbot::tw::EventSub> eventsub;
-  std::unique_ptr<sbot::tw::chat::Read> twitch_read;
-  std::unique_ptr<sbot::tw::chat::Send> twitch_send;
-  // Main loop
+  // Setup callbacks
+  twitch_service->setMessageCallback(
+      [&app_state](const sbot::core::ChatMessage &msg) {
+        app_state.pushChatMessage(msg);
+      });
+  twitch_service->setStatusCallback([&app_state](const std::string &status) {
+    app_state.last_status = status;
+  });
+
+  std::vector<char> message_input(265, '\0');
+
   LOG_INFO("Entering main loop");
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
@@ -128,34 +131,102 @@ auto main() -> int {
     glClear(GL_COLOR_BUFFER_BIT);
 
     imgui_manager.beginFrame();
+    ImGuiViewport *viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 
+    ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
+    window_flags |= ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    window_flags |=
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::Begin("DockSpace", nullptr, window_flags);
+    ImGui::PopStyleVar(2);
+
+    ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+
+    // Menu bar
+    if (ImGui::BeginMenuBar()) {
+      if (ImGui::BeginMenu("File")) {
+        // if (ImGui::MenuItem("Settings", nullptr, &show_settings_)) {}
+        ImGui::Separator();
+        if (ImGui::MenuItem("Exit")) {
+          glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        ImGui::EndMenu();
+      }
+
+      if (ImGui::BeginMenu("View")) {
+        // ImGui::MenuItem("Event Log", nullptr, &show_event_log_);
+        // ImGui::MenuItem("Statistics", nullptr, &show_statistics_);
+        ImGui::EndMenu();
+      }
+
+      ImGui::EndMenuBar();
+    }
+
+    ImGui::End(); // End dockspace
+
+    // Auth UI
     ImGui::Begin("Auth");
-    if (!app_state.is_logged_in) {
+    auto state = twitch_service->getState();
+
+    switch (state) {
+    case sbot::core::TwitchService::State::Disconnected:
       if (ImGui::Button("Login to Twitch")) {
-        app_state.wants_login = true;
+        twitch_service->startLogin();
       }
-    } else {
-      ImGui::Text("Authenticated as %s", app_state.twitchAuthState.c_str());
+      break;
+    case sbot::core::TwitchService::State::LoggingIn:
+      ImGui::Text("Logging in...");
+      break;
+    case sbot::core::TwitchService::State::LoggedIn:
+      ImGui::Text("Logged in as: %s", twitch_service->getCurrentUser().c_str());
+      if (ImGui::Button("Connect to Chat")) {
+        boost::asio::co_spawn(*connection->getIoContext(),
+                              twitch_service->connectToChat(),
+                              boost::asio::detached);
+      }
       if (ImGui::Button("Logout")) {
-        app_state.wants_logout = true;
+        twitch_service->disconnect();
       }
+      break;
+    case sbot::core::TwitchService::State::ConnectingToChat:
+      ImGui::Text("Connecting to chat...");
+      break;
+    case sbot::core::TwitchService::State::ChatConnected:
+      ImGui::Text("Connected! User: %s",
+                  twitch_service->getCurrentUser().c_str());
+      if (ImGui::Button("Disconnect")) {
+        twitch_service->disconnect();
+      }
+      break;
+    case sbot::core::TwitchService::State::Error:
+      ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error occured");
+      if (ImGui::Button("Reset")) {
+        twitch_service->disconnect();
+      }
+      break;
     }
     ImGui::End();
 
-    if (app_state.eventsub_active) {
-      auto pending_count = app_state.pendingMessageCount();
-      if (pending_count > 0) {
-        LOG_INFO("[Main] Processing {} pending messages", pending_count);
-      }
-      app_state.processPendingMessages();
-    }
+    // Chat UI
     ImGui::Begin("Chat");
-    if (app_state.is_logged_in && app_state.eventsub_active) {
+    if (twitch_service->canSendMessages()) {
+      // Process any pending messages
+      app_state.processPendingMessages();
+
       ImGui::BeginChild("ScrollingRegion",
                         ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true,
                         ImGuiWindowFlags_HorizontalScrollbar);
       for (auto &msg : app_state.chat_log) {
-        ImGui::TextColored(hexToImVec4(msg.color), "%s:", msg.user.c_str());
+        ImGui::TextColored(hexToImVec4(msg.color), "%s: ", msg.user.c_str());
         ImGui::SameLine();
         ImGui::TextUnformatted(msg.text.c_str());
       }
@@ -163,171 +234,39 @@ auto main() -> int {
         ImGui::SetScrollHereY(1.0F);
       }
       ImGui::EndChild();
-      ImGui::BeginChild("MessageSend");
-      static char message_buffer[512] = "";
-      if (ImGui::InputText("Send", message_buffer, sizeof(message_buffer),
+
+      ImGui::SetNextItemWidth(-80);
+      if (ImGui::InputText("##message", message_input.data(),
+                           message_input.size(),
                            ImGuiInputTextFlags_EnterReturnsTrue)) {
-        if (strlen(message_buffer) > 0 && twitch_send) {
-          boost::asio::co_spawn(
-              *connection->getIoContext(),
-              twitch_send->message(message_buffer,
-                                   twitch_config.broadcaster_id),
-              boost::asio::detached);
-          message_buffer[0] = '\0'; // clear input
+        std::string msg{message_input.data()};
+        if (!msg.empty()) {
+          twitch_service->sendMessage(msg);
+          message_input[0] = '\0';
         }
       }
-      ImGui::EndChild();
-    } else if (app_state.is_logged_in && !app_state.eventsub_active) {
-      if (ImGui::Button("Connect to Chat")) {
-        app_state.wants_eventsub = true;
+      ImGui::SameLine();
+      if (ImGui::Button("Send")) {
+        std::string msg{message_input.data()};
+        if (!msg.empty()) {
+          twitch_service->sendMessage(msg);
+          message_input[0] = '\0';
+        }
       }
     } else {
-      ImGui::Text("Not logged in");
+      ImGui::Text("Connect to chat to send messages");
     }
     ImGui::End();
 
     imgui_manager.endFrame();
     imgui_manager.render();
-
-    if (app_state.wants_login) {
-      boost::asio::co_spawn(
-          *connection->getIoContext(),
-          [&]() -> boost::asio::awaitable<void> {
-            try {
-              co_await twitch_auth.loginAsync();
-              std::string token = twitch_auth.accessToken();
-              auto user_info    = co_await twitch_auth.fetchUserInfoAsync();
-
-              app_state.twitchAuthState = user_info.display_name;
-              app_state.is_logged_in    = true;
-
-              twitch_config.access_token   = twitch_auth.accessToken();
-              twitch_config.broadcaster_id = user_info.id;
-              twitch_config.client_id      = twitch_auth.clientId();
-            } catch (const std::exception &e) {
-              LOG_ERROR("Twitch login failed: {}", e.what());
-              app_state.is_logged_in = false;
-            }
-          },
-          boost::asio::detached);
-      app_state.wants_login = false;
-    }
-
-    if (app_state.wants_logout) {
-    }
-    if (app_state.wants_eventsub && app_state.is_logged_in &&
-        !app_state.eventsub_active) {
-      try {
-        eventsub =
-            std::make_shared<sbot::tw::EventSub>(connection, twitch_config);
-        twitch_read = std::make_unique<sbot::tw::chat::Read>(eventsub);
-        twitch_send =
-            std::make_unique<sbot::tw::chat::Send>(connection, twitch_config);
-        auto app_state_ptr =
-            std::make_shared<sbot::core::AppState *>(&app_state);
-        // start async connection *runs on thread pool)
-        boost::asio::co_spawn(
-            *connection->getIoContext(),
-            eventsub->start([app_state_ptr](std::string const &msg) {
-              LOG_INFO("[Callback] Received message on thread, length: {}",
-                       msg.length());
-              try {
-                nlohmann::json raw_msg = nlohmann::json::parse(msg);
-                LOG_INFO("[Callback] Prased JSON successfully");
-                if (raw_msg.contains("metadata")) {
-                  LOG_INFO("[Callback] Has metatada");
-                  if (raw_msg["metadata"]["message_type"] == "notification") {
-                    LOG_INFO("[Callback] Is notification");
-                    std::string type = raw_msg["metadata"]["subscription_type"];
-                    LOG_INFO("[Callback] Type: {}", type);
-                    if (type == "channel.chat.message") {
-                      LOG_INFO("[Callback] Processing chat message");
-                      std::string chatter =
-                          raw_msg["payload"]["event"]["chatter_user_name"];
-                      std::string text =
-                          raw_msg["payload"]["event"]["message"]["text"];
-                      std::string color = raw_msg["payload"]["event"]["color"];
-                      LOG_INFO("[Callback] Chat from {}: {}", chatter, text);
-                      // Thread-safe push (this runs on background thread)
-                      (*app_state_ptr)
-                          ->pushChatMessage(sbot::core::ChatMessage{
-                              .user  = std::move(chatter),
-                              .text  = std::move(text),
-                              .color = std::move(color)});
-                      LOG_INFO("[Callback] Message pushed, pending count: {}",
-                               (*app_state_ptr)->pendingMessageCount());
-                    }
-                  }
-                } else {
-                  LOG_INFO("[Callback] Message type: {}", raw_msg.dump());
-                }
-              } catch (const std::exception &e) {
-                LOG_ERROR("[Callback] Failed to parse EventSub message: {}",
-                          e.what());
-                LOG_ERROR("[Callback] Raw message: {}", msg);
-              }
-            }),
-            boost::asio::detached);
-        app_state.eventsub_active = true;
-        app_state.wants_eventsub  = false;
-        app_state.wants_chat      = true;
-      } catch (const std::exception &e) {
-        LOG_ERROR("Twitch eventsub failed: {}", e.what());
-      }
-    }
-    if (app_state.eventsub_active && !app_state.chat_active &&
-        app_state.wants_chat) {
-      LOG_INFO("Adding chat read to subscriptions");
-      twitch_read->sendSubscription();
-      app_state.wants_chat  = false;
-      app_state.chat_active = true;
-    }
-
     glfwSwapBuffers(window);
   }
   LOG_INFO("Main loop ending, shutting down gracefully");
-  // Shutdown twitch client gracefully
-  if (eventsub && app_state.eventsub_active) {
-    try {
-      LOG_INFO("Shutting down Twitch client");
-      auto shutdown_task = eventsub->shutdown();
-      auto timeout_timer = boost::asio::steady_timer(
-          *connection->getIoContext(), std::chrono::seconds(3));
-      bool shutdown_completed = false;
-      boost::asio::co_spawn(
-          *connection->getIoContext(),
-          [&]() -> boost::asio::awaitable<void> {
-            try {
-              co_await eventsub->shutdown();
-              shutdown_completed = true;
-              LOG_INFO("Twitch client shutdown completed");
-            } catch (const std::exception &err) {
-              LOG_ERROR("Error during graceful shutdown: {}", err.what());
-            }
-          },
-          boost::asio::detached);
-      // Wait for completion or timeout
-      auto start_time = std::chrono::steady_clock::now();
-      while (!shutdown_completed &&
-             std::chrono::steady_clock::now() - start_time <
-                 std::chrono::seconds(3)) {
-        connection->getIoContext()->poll();
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      }
-      if (!shutdown_completed) {
-        LOG_WARN("Twitch client shutdown timed out");
-      }
-    } catch (const std::exception &err) {
-      LOG_ERROR("Error during Twitch client shutdown: {}", err.what());
-    }
-  }
-  twitch_send.reset();
-  twitch_read.reset();
-  eventsub.reset();
-  app_state.eventsub_active = false;
-  LOG_INFO("Starting connection manager shutdown");
+  twitch_service->disconnect();
+  //  connection->stop()  ;
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-  // Cleanup
   glfwDestroyWindow(window);
   glfwTerminate();
 

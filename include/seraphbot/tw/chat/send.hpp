@@ -7,8 +7,6 @@
 #include <boost/asio/awaitable.hpp>
 #include <memory>
 #include <string>
-#include <utility>
-#include <vector>
 
 namespace sbot::tw::chat {
 
@@ -17,7 +15,7 @@ public:
   Send(std::shared_ptr<core::ConnectionManager> conn_manager, ClientConfig cfg);
   ~Send();
 
-  auto message(const std::string &msg, const std::string &sender_id)
+  auto message(std::string msg, std::string sender_id)
       -> boost::asio::awaitable<void>;
 
 private:
