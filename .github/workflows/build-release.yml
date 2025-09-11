@@ -130,7 +130,9 @@ jobs:
 
       - name: Configure build
         run: |
-          meson setup build --native-file=debug-windows.ini --buildtype=debug
+          $env:PKG_CONFIG_PATH = "${{ env.VCPKG_ROOT }}/installed/x64-windows-static/lib/pkgconfig"
+          $env:CMAKE_PREFIX_PATH = "${{ env.VCPKG_ROOT }}/installed/x64-windows-static"
+          meson setup build --native-file=debug-windows.ini --buildtype=debug --cmake-prefix-path="${{ env.VCPKG_ROOT }}/installed/x64-windows-static"
 
       - name: Build
         run: |

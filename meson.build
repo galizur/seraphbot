@@ -7,6 +7,10 @@ project(
 
 add_project_arguments('-DIMGUI_IMPL_OPENGL_LOADER_CUSTOM', language: 'cpp')
 
+if host_machine.system() == 'linux'
+  add_project_arguments('-DGLFW_USE_WAYLAND=1', language: 'cpp')
+endif
+
 # Libc++ detection
 cpp_args = get_option('cpp_args')
 cpp_link_args = get_option('cpp_link_args')
@@ -28,9 +32,9 @@ endif
 
 # System libraries
 dl_dep = dependency('dl', required: false)
-openssl_dep = dependency('openssl', version: '>=3.0.8', required: true)
 boost_head_dep = dependency('boost', version: '=1.88.0', required: true)
 boost_dep = dependency('boost', modules: ['process'], version: '=1.88.0', required: false)
+openssl_dep = dependency('openssl', version: '>=3.0.8', required: true, fallback: ['openssl', 'openssl_dep'])
 spdlog_dep = dependency('spdlog', version: '>=1.15.3', required: not using_libcxx)
 nlohmann_dep = dependency('nlohmann_json', version: '>=3.12', required: true)
 thread_dep = dependency('threads', required: true)

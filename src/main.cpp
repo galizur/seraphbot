@@ -48,6 +48,14 @@ auto initWindow(int width = 1820, int height = 720) -> GLFWwindow * {
   if (glfwInit() == 0) {
     throw std::runtime_error("Failed to init GLFW");
   }
+#ifdef __WIN32
+  glfwWindowHint(GLFW_PLATFORM, GLFW_PLATFORM_WIN32);
+#elif __linux__
+  glfwWindowHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
+#else
+  glfwWindowHint(GLFW_PLATFORM, GLFW_PLATFORM_COCOA);
+#endif
+
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
