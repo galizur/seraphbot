@@ -19,11 +19,10 @@ class ConnectionManager {
 public:
   explicit ConnectionManager(std::size_t thread_count = 2);
   ~ConnectionManager();
-  ConnectionManager(const ConnectionManager &) = /*default*/ delete;
-  auto operator=(const ConnectionManager &)
-      -> ConnectionManager &              = /*default*/ delete;
-  ConnectionManager(ConnectionManager &&) = delete;
-  auto operator=(ConnectionManager &&) -> ConnectionManager & = delete;
+  ConnectionManager(const ConnectionManager &)                     = delete;
+  auto operator=(const ConnectionManager &) -> ConnectionManager & = delete;
+  ConnectionManager(ConnectionManager &&)                          = delete;
+  auto operator=(ConnectionManager &&) -> ConnectionManager &      = delete;
 
   [[nodiscard]] auto getIoContext() const
       -> std::shared_ptr<boost::asio::io_context>;
@@ -32,8 +31,7 @@ public:
   [[nodiscard]] auto getResolver() const
       -> std::shared_ptr<boost::asio::ip::tcp::resolver>;
 
-  [[nodiscard]] auto makeSslStreamAsync(std::string const &host,
-                                        std::string const &port)
+  [[nodiscard]] auto makeSslStreamAsync(std::string host, std::string port)
       -> boost::asio::awaitable<std::unique_ptr<
           boost::beast::ssl_stream<boost::asio::ip::tcp::socket>>>;
 

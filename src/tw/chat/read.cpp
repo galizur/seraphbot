@@ -1,6 +1,7 @@
 #include "seraphbot/tw/chat/read.hpp"
 
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <utility>
@@ -10,10 +11,6 @@
 
 namespace {
 namespace asio  = boost::asio;
-namespace beast = boost::beast;
-namespace http  = beast::http;
-namespace ws    = beast::websocket;
-namespace ssl   = asio::ssl;
 using tcp       = asio::ip::tcp;
 using json      = nlohmann::json;
 } // namespace
@@ -26,7 +23,7 @@ sbot::tw::chat::Read::Read(std::shared_ptr<sbot::tw::EventSub> eventsub)
 
 sbot::tw::chat::Read::~Read() { LOG_TRACE("Shutting down"); }
 
-auto sbot::tw::chat::Read::request() -> asio::awaitable<void> {
+auto sbot::tw::chat::Read::sendSubscription() -> asio::awaitable<void> {
   json condition = {
       {"broadcaster_user_id", m_eventsub->getTwitchConfig().broadcaster_id},
       {"user_id",             m_eventsub->getTwitchConfig().broadcaster_id}

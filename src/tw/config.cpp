@@ -1,15 +1,32 @@
 #include "seraphbot/tw/config.hpp"
 
-#include "seraphbot/core/connection_manager.hpp"
-#include "seraphbot/core/logging.hpp"
-
 #include <boost/asio.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/ssl/error.hpp>
+#include <boost/asio/ssl/stream_base.hpp>
+#include <boost/asio/use_awaitable.hpp>
 #include <boost/beast.hpp>
+#include <boost/beast/core/buffers_to_string.hpp>
+#include <boost/beast/core/error.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/http.hpp>
+#include <boost/beast/http/dynamic_body_fwd.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/impl/read.hpp>
+#include <boost/beast/http/impl/write.hpp>
+#include <boost/beast/http/message_fwd.hpp>
+#include <boost/beast/http/string_body_fwd.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <memory>
-#include <nlohmann/json.hpp>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "seraphbot/core/connection_manager.hpp"
+#include "seraphbot/core/logging.hpp"
 
 namespace {
 namespace asio  = boost::asio;
@@ -17,28 +34,27 @@ namespace beast = boost::beast;
 namespace http  = beast::http;
 namespace ssl   = asio::ssl;
 using tcp       = asio::ip::tcp;
-using json      = nlohmann::json;
 } // namespace
 
 auto sbot::tw::httpsPostAsync(
     const std::shared_ptr<sbot::core::ConnectionManager> conn_manager,
-    const std::string &host, const std::string &port, const std::string &target,
-    const std::string &body,
-    const std::vector<std::pair<std::string, std::string>> &headers)
+    std::string host, std::string port, std::string target, std::string body,
+    std::vector<std::pair<std::string, std::string>> headers)
     -> asio::awaitable<std::string> {
-  LOG_CONTEXT("Twitch Chat Read");
+  LOG_CONTEXT("Twitch Config");
   auto stream = co_await conn_manager->makeSslStreamAsync(host, port);
 
   co_await stream->async_handshake(ssl::stream_base::client,
                                    asio::use_awaitable);
 
+  constexpr int c_http_version{11};
   // Set up HTTP request
-  http::request<http::string_body> req{http::verb::post, target, 11};
+  http::request<http::string_body> req{http::verb::post, target,
+                                       c_http_version};
   req.set(http::field::host, host);
   req.set(http::field::user_agent, "seraphbot-eventsub/0.1");
   req.set(http::field::content_type, "application/json");
-  req.set(http::field::connection,
-          "close"); // Important: signal connection close
+  req.set(http::field::connection, "close");
 
   for (const auto &head : headers) {
     req.set(head.first, head.second);
@@ -69,8 +85,9 @@ auto sbot::tw::httpsPostAsync(
 }
 
 auto sbot::tw::stripOauthPrefix(std::string token) -> std::string {
+  constexpr int c_oauth_str_len{6};
   if (token.starts_with("oauth:")) {
-    return token.substr(6);
+    return token.substr(c_oauth_str_len);
   }
   return token;
 }

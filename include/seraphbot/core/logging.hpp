@@ -2,6 +2,7 @@
 #define SBOT_CORE_LOGGING_HPP
 
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <memory>
 #include <mutex>
@@ -16,7 +17,7 @@
 
 namespace sbot::core {
 
-enum class LogLevel {
+enum class LogLevel : std::uint8_t {
   Trace    = 0,
   Debug    = 1,
   Info     = 2,
@@ -28,6 +29,8 @@ enum class LogLevel {
 
 class Logger {
 public:
+  static constexpr int c_max_size{10 * 1024 * 1024};
+  static constexpr int c_max_files{5};
   struct Config {
     LogLevel console_level{LogLevel::Info};
     LogLevel file_level{LogLevel::Debug};
@@ -36,8 +39,8 @@ public:
     bool enable_console{true};
     bool enable_file{true};
     bool enable_rotation{true};
-    std::size_t max_file_size{10 * 1024 * 1024};
-    std::size_t max_files{5};
+    std::size_t max_file_size{c_max_size};
+    std::size_t max_files{c_max_files};
     std::string pattern{"[%Y-%m-%d %H:%M:%S.%e] [%n] [%^%l%$] [%t] %v"};
   };
 
@@ -76,7 +79,7 @@ public:
 
   // Level control
   auto setLevel(LogLevel level) -> void;
-  auto getLevel() const -> LogLevel;
+  [[nodiscard]] auto getLevel() const -> LogLevel;
 
   // Flush logs
   auto flush() -> void;
@@ -110,6 +113,7 @@ public:
 };
 
 // Convenience macros
+// NOLINTBEGIN
 #define LOG_TRACE(...) sbot::core::Logger::instance().trace(__VA_ARGS__)
 #define LOG_DEBUG(...) sbot::core::Logger::instance().debug(__VA_ARGS__)
 #define LOG_INFO(...) sbot::core::Logger::instance().info(__VA_ARGS__)
@@ -118,6 +122,7 @@ public:
 #define LOG_CRITICAL(...) sbot::core::Logger::instance().critical(__VA_ARGS__)
 
 #define LOG_CONTEXT(name) sbot::core::LogContext c_log_ctx(name)
+// NOLINTEND
 
 } // namespace sbot::core
 

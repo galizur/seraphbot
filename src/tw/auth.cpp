@@ -1,11 +1,9 @@
 #include "seraphbot/tw/auth.hpp"
 
-#include "seraphbot/core/connection_manager.hpp"
-#include "seraphbot/core/logging.hpp"
-
 #include <algorithm>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/host_name_verification.hpp>
@@ -18,9 +16,13 @@
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/http/field.hpp>
+#include <boost/beast/http/impl/read.hpp>
+#include <boost/beast/http/impl/write.hpp>
 #include <boost/beast/http/message.hpp>
+#include <boost/beast/http/message_fwd.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/string_body.hpp>
+#include <boost/beast/http/string_body_fwd.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/beast/http/write.hpp>
 #include <boost/beast/ssl/ssl_stream.hpp>
@@ -47,12 +49,17 @@
 #include <iomanip>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <openssl/tls1.h>
 #include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
+
+#include "seraphbot/core/connection_manager.hpp"
+#include "seraphbot/core/logging.hpp"
 
 namespace {
 namespace asio  = boost::asio;
@@ -64,6 +71,7 @@ using json      = nlohmann::json;
 } // namespace
 
 #ifdef _LIBCPP_VERSION
+// NOLINTNEXTLINE
 #define SBOT_LIBCXX 1
 // NOLINTNEXTLINE
 #warning "libc++ detected - using chrono workarounds."
@@ -71,8 +79,10 @@ using json      = nlohmann::json;
 #define SBOT_LIBCXX 0
 #endif
 
-auto parseTime(const std::string &s) -> std::chrono::system_clock::time_point {
-  std::istringstream ss{s};
+namespace {
+auto parseTime(const std::string &str)
+    -> std::chrono::system_clock::time_point {
+  std::istringstream sstream{str};
 #if !SBOT_LIBCXX
   std::chrono::system_clock::time_point tp;
   ss >> std::chrono::parse("%Y-%m-%dT%H:%M:%S", tp);
@@ -84,21 +94,22 @@ auto parseTime(const std::string &s) -> std::chrono::system_clock::time_point {
   return tp;
 #else
   LOG_INFO("libc++ detected - using chrono workarounds.");
-  std::tm tm{};
-  ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-  if (ss.fail()) {
-    LOG_ERROR("Invalid time format: {}", s);
-    throw std::runtime_error("Invalid time format: " + s);
+  std::tm time{};
+  sstream >> std::get_time(&time, "%Y-%m-%dT%H:%M:%SZ");
+  if (sstream.fail()) {
+    LOG_ERROR("Invalid time format: {}", str);
+    throw std::runtime_error("Invalid time format: " + str);
   }
 #ifdef _WIN32
   auto time_c = _mkgmtime(&tm);
 #else
-  auto time_c = timegm(&tm);
+  auto time_c = timegm(&time); // NOLINT
 #endif
 
   return std::chrono::system_clock::from_time_t(time_c);
 #endif
 }
+} // namespace
 
 sbot::tw::Auth::Auth(std::shared_ptr<core::ConnectionManager> conn_manager,
                      std::string url_base)
@@ -131,9 +142,8 @@ auto sbot::tw::Auth::generateState() -> std::string {
   return state;
 }
 
-auto sbot::tw::Auth::getHttpAsync(const std::string &url)
+auto sbot::tw::Auth::getHttpAsync(std::string url)
     -> boost::asio::awaitable<std::string> {
-  LOG_CONTEXT("Twitch Auth");
   try {
     auto stream = co_await m_conn_manager->makeSslStreamAsync(
         m_url_base, std::string(c_twitch_port));
@@ -276,8 +286,7 @@ auto sbot::tw::Auth::loginAsync() -> asio::awaitable<void> {
   const int max_attempts = 10;
   while (attempts <= max_attempts) {
     auto delay = std::chrono::seconds(attempts);
-    LOG_INFO("Waiting {} seconds before attempt {}", delay.count(),
-             attempts);
+    LOG_INFO("Waiting {} seconds before attempt {}", delay.count(), attempts);
 
     co_await asio::steady_timer{*m_conn_manager->getIoContext(), delay}
         .async_wait(asio::use_awaitable);
