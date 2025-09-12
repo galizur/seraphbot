@@ -35,8 +35,9 @@ jobs:
                 subprojects/packagefiles
                 subprojects/*.wrap
                 build/subprojects
-          key: meson-deps-v4-${{ hashFiles('subprojects/*.wrap', 'meson.build', 'build-release.yml') }}
+          key: meson-deps-v5-${{ hashFiles('subprojects/*.wrap', 'meson.build', 'build-release.yml') }}
           restore-keys: |
+                        meson-deps-v4-
                         meson-deps-v3-
                         meson-deps-v2-
                         meson-deps-
@@ -128,8 +129,9 @@ jobs:
                 subprojects/packagefiles
                 subprojects/*.wrap
                 build/subprojects
-          key: meson-deps-v4-${{ hashFiles('subprojects/*.wrap', 'meson.build', 'build-release.yml') }}
+          key: meson-deps-v5-${{ hashFiles('subprojects/*.wrap', 'meson.build', 'build-release.yml') }}
           restore-keys: |
+                        meson-deps-v4-
                         meson-deps-v3-
                         meson-deps-v2-
                         meson-deps-
