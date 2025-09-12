@@ -38,7 +38,7 @@ openssl_dep = dependency('openssl', version: '>=3.0.8', required: true, fallback
 spdlog_dep = dependency('spdlog', version: '>=1.15.3', required: not using_libcxx)
 nlohmann_dep = dependency('nlohmann_json', version: '>=3.12', required: true)
 thread_dep = dependency('threads', required: true)
-glfw_dep = dependency('glfw3', version: '>=3.4.0', required: true)
+glfw_dep = dependency('glfw3', version: '>=3.4', required: true)
 gl_dep = dependency('gl', required: true)
 
 # Subprojects
