@@ -51,14 +51,6 @@ jobs:
                 sudo ./b2 install -j$(nproc)
              fi
 
-      - name: Install Git
-        uses: actions/setup-git@v1
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
       - name: Setup Python and Meson
         run: |
              python -m pip install --upgrade pip
@@ -149,14 +141,6 @@ jobs:
                 .\b2.exe install --with-system --with-thread --with-chrono --with-date_time --with-process address-model=64 variant=debug,release link=static runtime-link=shared -j4
              }
 
-      - name: Install Git
-        uses: actions/setup-git@v1
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
       # - name: Install dependencies
       #   run: |
       #     vcpkg install --triplet x64-windows-static
@@ -169,10 +153,6 @@ jobs:
       - name: Setup Python and Meson
         run: |
           pip install meson ninja
-
-      - name: Clean subprojects
-        run: |
-             Remove-Item subprojects\spdlog -Recurse -Force
 
       - name: Install Meson wrap dependencies
         run: |
