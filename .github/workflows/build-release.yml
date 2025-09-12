@@ -51,6 +51,11 @@ jobs:
                 sudo ./b2 install -j$(nproc)
              fi
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - name: Setup Python and Meson
         run: |
              python -m pip install --upgrade pip
@@ -150,9 +155,18 @@ jobs:
         with:
           arch: x64
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - name: Setup Python and Meson
         run: |
           pip install meson ninja
+
+      - name: Clean subprojects
+        run: |
+             Remove-Item subprojects\spdlog -Recurse -Force
 
       - name: Install Meson wrap dependencies
         run: |
