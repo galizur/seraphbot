@@ -25,7 +25,7 @@ struct ClientConfig {
 auto httpsPostAsync(std::shared_ptr<core::ConnectionManager> conn_manager,
                     std::string host, std::string port, std::string target,
                     std::string body,
-                    std::vector<std::pair<std::string, std::string>> headers)
+                    std::vector<std::pair<std::string, std::string>> headers = {})
     -> boost::asio::awaitable<std::string>;
 
 auto stripOauthPrefix(std::string token) -> std::string;

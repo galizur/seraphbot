@@ -82,25 +82,9 @@ auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
     co_await m_stream->async_handshake(ssl::stream_base::client,
                                        asio::use_awaitable);
 
-    // auto socket = std::move(m_stream->next_layer());
-    // m_stream.reset();
-    // m_wss = std::make_unique<ws::stream<beast::ssl_stream<tcp::socket>>>(
-    //     std::move(socket), *m_conn_manager->getSslContext());
     // // // Now upgrade to websocket over TLS
     m_wss = std::make_unique<ws::stream<beast::ssl_stream<tcp::socket>>>(
         std::move(*m_stream));
-    // beast::ssl_stream<tcp::socket>
-    // ssl_stream{*m_conn_manager->getIoContext(),
-    //                                           *m_conn_manager->getSslContext()};
-    // auto resolver      = m_conn_manager->getResolver();
-    // auto const results = co_await resolver->async_resolve(
-    //     m_cfg.host, m_cfg.port, asio::use_awaitable);
-    // co_await asio::async_connect(ssl_stream.next_layer(), results,
-    //                              asio::use_awaitable);
-    // co_await ssl_stream.async_handshake(ssl::stream_base::client,
-    //                                     asio::use_awaitable);
-    // m_wss.emplace(std::move(ssl_stream));
-
     // Set timeout options (optional)
     m_wss->set_option(
         ws::stream_base::timeout::suggested(beast::role_type::client));
@@ -134,11 +118,6 @@ auto sbot::tw::EventSub::connect() -> asio::awaitable<void> {
     m_session_id = session_id;
 
     LOG_INFO("session_id = {}", session_id);
-
-    // co_await subscribe("channel.chat.notification", "1");
-
-    // asio::co_spawn(*m_conn_manager->getIoContext(), doRead(),
-    // asio::detached);
   } catch (const std::exception &ex) {
     LOG_ERROR("Connection error: {}", ex.what());
     throw;

@@ -220,11 +220,13 @@ auto main() -> int {
       ImGui::BeginChild("ScrollingRegion",
                         ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true,
                         ImGuiWindowFlags_HorizontalScrollbar);
+      ImGui::PushTextWrapPos(0.0F);
       for (auto &msg : app_state.chat_log) {
         ImGui::TextColored(hexToImVec4(msg.color), "%s: ", msg.user.c_str());
         ImGui::SameLine();
-        ImGui::TextUnformatted(msg.text.c_str());
+        ImGui::TextWrapped(msg.text.c_str());
       }
+      ImGui::PopTextWrapPos();
       if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
         ImGui::SetScrollHereY(1.0F);
       }

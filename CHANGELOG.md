@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- Test subscriptions to verify WebSocket connection
+- Text in chat wraps at the end of the window
+- Initial Discord going-live integration
+
+### Changed
+- Added a default fallback font (FiraSans - random right now!)
+
+## [0.1.0-alpha.2] - 2025-09-12
 ### Changed
 - Defaulted builds to preferred library type (on Linux usually shared libraries)
 - Modified meson.build to prefer system libraries first, fall back to subprojects if they can't be found

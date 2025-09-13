@@ -2,6 +2,7 @@
 
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/core/logging.hpp"
+#include "seraphbot/tw/config.hpp"
 
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>

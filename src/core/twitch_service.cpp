@@ -3,8 +3,8 @@
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
-#include <boost/asio/impl/co_spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/asio/this_coro.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <chrono>
 #include <exception>
@@ -20,6 +20,8 @@
 #include "seraphbot/tw/chat/read.hpp"
 #include "seraphbot/tw/chat/send.hpp"
 #include "seraphbot/tw/eventsub.hpp"
+// Test
+#include "seraphbot/discord/notifications.hpp"
 
 namespace {
 namespace sbc  = sbot::core;
@@ -77,13 +79,6 @@ auto sbc::TwitchService::connectToChat() -> asio::awaitable<void> {
 
     auto timeout_timer = asio::steady_timer{*m_connection->getIoContext(),
                                             std::chrono::seconds(10)};
-    // auto connect_task  = m_eventsub->connect();
-    // auto timeout_task  = timeout_timer.async_wait(asio::use_awaitable);
-
-    // auto result = co_await (connect_task || timeout_task);
-    // if (result.index() == 1) {
-    //   throw std::runtime_error("Connection timeout");
-    // }
     co_await m_eventsub->connect();
 
     LOG_INFO("EventSub connected, starting read loop");
@@ -114,6 +109,31 @@ auto sbc::TwitchService::connectToChat() -> asio::awaitable<void> {
         .async_wait(asio::use_awaitable);
 
     co_await m_chat_read->requestSubscription();
+    co_spawn(co_await boost::asio::this_coro::executor,
+             m_eventsub->subscribe("channel.update", "2"),
+             boost::asio::detached); // TODO: Find details
+    // co_await m_eventsub->subscribe("channel.follow", "2"); // TODO: update
+    // subscribe function
+    co_spawn(co_await boost::asio::this_coro::executor,
+             m_eventsub->subscribe("channel.ad_break.begin", "1"),
+             boost::asio::detached); // TODO: Find details
+    co_spawn(co_await boost::asio::this_coro::executor,
+             m_eventsub->subscribe("channel.chat.clear", "1"),
+             boost::asio::detached);
+    co_spawn(co_await boost::asio::this_coro::executor,
+             m_eventsub->subscribe("channel.chat.clear_user_messages", "1"),
+             boost::asio::detached);
+    co_spawn(co_await boost::asio::this_coro::executor,
+             m_eventsub->subscribe("channel.chat.message_delete", "1"),
+             boost::asio::detached);
+    co_spawn(co_await boost::asio::this_coro::executor,
+             m_eventsub->subscribe("channel.chat.notification", "1"),
+             boost::asio::detached);
+
+    LOG_DEBUG("Testing Discord");
+    discord::Notifications notif{m_connection, "This is supposed to be the url"};
+    co_await notif.sendMessage("We are live - test!");
+    LOG_DEBUG("End Discord test");
 
     setState(State::ChatConnected, "Connected to chat");
   } catch (const std::exception &err) {
@@ -203,6 +223,20 @@ auto sbc::TwitchService::handleEventSubMessage(const std::string &msg) -> void {
       ChatMessage chat_msg{.user  = std::move(chatter),
                            .text  = std::move(text),
                            .color = std::move(color)};
+      m_message_callback(chat_msg);
+    }
+    if (type == "channel.ad_break.begin" && m_message_callback) {
+      std::string text{raw_msg["payload"]["event"]["duration_seconds"]};
+      LOG_INFO("System message:");
+      ChatMessage chat_msg{.user  = "System",
+                           .text  = text + " second ad break beginning.",
+                           .color = "#AAAAAA"};
+      m_message_callback(chat_msg);
+    }
+    if (type == "channel.chat.clear" && m_message_callback) {
+      LOG_INFO("System message:");
+      ChatMessage chat_msg{
+          .user = "System", .text = "Chat clear requested", .color = "#AAAAAA"};
       m_message_callback(chat_msg);
     }
   } catch (const std::exception &err) {
