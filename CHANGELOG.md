@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Test subscriptions to verify WebSocket connection
 - Text in chat wraps at the end of the window
 - Initial Discord going-live integration
+- Add Discord frontend
 
 ### Changed
 - Added a default fallback font (FiraSans - random right now!)
