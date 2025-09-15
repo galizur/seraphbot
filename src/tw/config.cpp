@@ -14,6 +14,7 @@
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/http/dynamic_body_fwd.hpp>
+#include <boost/beast/http/empty_body.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/impl/read.hpp>
 #include <boost/beast/http/impl/write.hpp>
@@ -41,7 +42,6 @@ auto sbot::tw::httpsPostAsync(
     std::string host, std::string port, std::string target, std::string body,
     std::vector<std::pair<std::string, std::string>> headers)
     -> asio::awaitable<std::string> {
-  LOG_CONTEXT("Twitch Config");
   auto stream = co_await conn_manager->makeSslStreamAsync(host, port);
 
   co_await stream->async_handshake(ssl::stream_base::client,
@@ -90,4 +90,47 @@ auto sbot::tw::stripOauthPrefix(std::string token) -> std::string {
     return token.substr(c_oauth_str_len);
   }
   return token;
+}
+
+auto sbot::tw::httpsGetAsync(
+    const std::shared_ptr<sbot::core::ConnectionManager> conn_manager,
+    std::string host, std::string port, std::string target,
+    std::vector<std::pair<std::string, std::string>> headers)
+    -> asio::awaitable<std::string> {
+  auto stream = co_await conn_manager->makeSslStreamAsync(host, port);
+
+  co_await stream->async_handshake(ssl::stream_base::client,
+                                   asio::use_awaitable);
+
+  constexpr int c_http_version{11};
+  // Set up HTTP request
+  http::request<http::empty_body> req{http::verb::get, target, c_http_version};
+  req.set(http::field::host, host);
+  req.set(http::field::user_agent, "seraphbot-eventsub/0.1");
+  req.set(http::field::connection, "close");
+
+  for (const auto &head : headers) {
+    req.set(head.first, head.second);
+  }
+
+  co_await http::async_write(*stream, req, asio::use_awaitable);
+
+  beast::flat_buffer buffer;
+  http::response<http::dynamic_body> res;
+  co_await http::async_read(*stream, buffer, res, asio::use_awaitable);
+
+  // Extract response body before shutdown
+  std::string response_body = beast::buffers_to_string(res.body().data());
+
+  try {
+    // Set a timeout for shutdown
+    co_await stream->async_shutdown(boost::asio::use_awaitable);
+  } catch (const beast::system_error &err_c) {
+    if (err_c.code() != asio::error::eof &&
+        err_c.code() != ssl::error::stream_truncated &&
+        err_c.code() != beast::error::timeout) {
+      LOG_WARN("SSL shutdown warning (usually harmless): {}", err_c.what());
+    }
+  }
+  co_return response_body;
 }

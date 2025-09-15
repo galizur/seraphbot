@@ -22,10 +22,16 @@ struct ClientConfig {
   std::string broadcaster_id; // user id of the channel you want events for
 };
 
-auto httpsPostAsync(std::shared_ptr<core::ConnectionManager> conn_manager,
-                    std::string host, std::string port, std::string target,
-                    std::string body,
-                    std::vector<std::pair<std::string, std::string>> headers = {})
+auto httpsPostAsync(
+    std::shared_ptr<core::ConnectionManager> conn_manager, std::string host,
+    std::string port, std::string target, std::string body,
+    std::vector<std::pair<std::string, std::string>> headers = {})
+    -> boost::asio::awaitable<std::string>;
+
+auto httpsGetAsync(
+    std::shared_ptr<core::ConnectionManager> conn_manager, std::string host,
+    std::string port, std::string target,
+    std::vector<std::pair<std::string, std::string>> headers = {})
     -> boost::asio::awaitable<std::string>;
 
 auto stripOauthPrefix(std::string token) -> std::string;

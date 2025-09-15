@@ -32,7 +32,7 @@ public:
     Error
   };
 
-  explicit TwitchService(std::shared_ptr<ConnectionManager> connection);
+explicit TwitchService(std::shared_ptr<ConnectionManager> connection, tw::ClientConfig cfg);
 
   auto startLogin() -> void;
   auto connectToChat() -> boost::asio::awaitable<void>;

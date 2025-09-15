@@ -1,6 +1,5 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
-#include <array>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
@@ -22,9 +21,12 @@
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/core/logging.hpp"
 #include "seraphbot/core/twitch_service.hpp"
+#include "seraphbot/discord/notifications.hpp"
 #include "seraphbot/tw/auth.hpp"
+#include "seraphbot/tw/config.hpp"
 #include "seraphbot/ui/imgui_backend_opengl.hpp"
 #include "seraphbot/ui/imgui_manager.hpp"
+#include "seraphbot/viewmodels/discord_viewmodel.hpp"
 
 auto hexToImVec4 = [](const std::string &hex) -> ImVec4 {
   if (hex.size() < 7 || hex.at(0) != '#') {
@@ -106,7 +108,11 @@ auto main() -> int {
   sbot::ui::ImGuiManager imgui_manager(std::move(backend), app_state, window);
 
   auto connection{std::make_shared<sbot::core::ConnectionManager>(2)};
-  auto twitch_service{std::make_unique<sbot::core::TwitchService>(connection)};
+  sbot::tw::ClientConfig tw_config;
+  auto twitch_service{
+      std::make_unique<sbot::core::TwitchService>(connection, tw_config)};
+  sbot::discord::Notifications notif(connection, tw_config);
+  sbot::viewmodels::DiscordVM discord_vm(notif);
 
   // Setup callbacks
   twitch_service->setMessageCallback(
@@ -117,7 +123,7 @@ auto main() -> int {
     app_state.last_status = status;
   });
 
-  std::vector<char> message_input(265, '\0');
+  std::vector<char> message_input(256, '\0');
 
   LOG_INFO("Entering main loop");
   while (!glfwWindowShouldClose(window)) {
@@ -168,6 +174,21 @@ auto main() -> int {
 
     ImGui::End(); // End dockspace
 
+    ImVec2 window_size(200, 20);
+    float padding = 10.0F;
+    ImVec2 pos(viewport->Pos.x + viewport->Size.x - window_size.x - padding,
+               viewport->Pos.y + viewport->Size.y - window_size.y - padding);
+    ImGui::SetNextWindowPos(pos);
+    ImGui::SetNextWindowSize(window_size);
+    ImGui::Begin("StatusBar", nullptr,
+                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                     ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoFocusOnAppearing |
+                     ImGuiWindowFlags_NoDocking);
+    ImGui::Text("FPS: %.1F", ImGui::GetIO().Framerate);
+    ImGui::End();
+
     // Auth UI
     ImGui::Begin("Auth");
     auto state = twitch_service->getState();
@@ -203,7 +224,7 @@ auto main() -> int {
       }
       break;
     case sbot::core::TwitchService::State::Error:
-      ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error occured");
+      ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error occurred");
       if (ImGui::Button("Reset")) {
         twitch_service->disconnect();
       }
@@ -253,6 +274,19 @@ auto main() -> int {
     } else {
       ImGui::Text("Connect to chat to send messages");
     }
+    ImGui::End();
+
+    ImGui::Begin("Discord Settings");
+    ImGui::Text("Discord WebHook URL");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1.0F);
+    ImGui::InputText("##webhookurl", discord_vm.webhook_url,
+                     sizeof(discord_vm.webhook_url));
+    if (ImGui::Button("Apply")) {
+      discord_vm.syncTo();
+    }
+    ImGui::SameLine();
+    ImGui::Text(discord_vm.readFrom().c_str());
     ImGui::End();
 
     imgui_manager.endFrame();
