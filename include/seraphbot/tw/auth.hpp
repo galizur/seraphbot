@@ -40,6 +40,7 @@ public:
 
   Auth(std::shared_ptr<core::ConnectionManager> conn_manager,
        std::string url_base);
+  ~Auth();
 
   auto loginAsync() -> boost::asio::awaitable<void>;
   [[nodiscard]] auto isLoggedIn() const -> bool;
@@ -47,7 +48,6 @@ public:
   [[nodiscard]] auto clientId() const -> std::string;
   auto fetchClientIdAsync() -> boost::asio::awaitable<std::string>;
   auto fetchUserInfoAsync() -> boost::asio::awaitable<TwitchUserInfo>;
-  // [[nodiscard]] auto fullToken() const -> const nlohmann::json &;
 
 private:
   static constexpr std::string_view c_twitch_port{"443"};
@@ -62,10 +62,8 @@ private:
   std::string m_state;
   std::string m_refresh_token;
   TwitchUserInfo m_user_info; // TODO: To be moved to a different file
-  // nlohmann::json m_token;
 
   auto getAuthUrlAsync() -> boost::asio::awaitable<std::string>;
-  // auto pollToken() -> nlohmann::json;
   [[nodiscard]] static auto generateState() -> std::string;
   auto requestTokenAsync() -> boost::asio::awaitable<void>;
   auto storeToken(const std::string &token) -> void;

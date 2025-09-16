@@ -115,7 +115,11 @@ sbot::tw::Auth::Auth(std::shared_ptr<core::ConnectionManager> conn_manager,
                      std::string url_base)
     : m_conn_manager{std::move(conn_manager)}, m_url_base{std::move(url_base)} {
   LOG_CONTEXT("Twitch Auth");
-  LOG_TRACE("Auth starting");
+  LOG_INFO("Initializing");
+}
+
+sbot::tw::Auth::~Auth() {
+  LOG_INFO("Shutting down");
 }
 
 auto sbot::tw::Auth::isLoggedIn() const -> bool {

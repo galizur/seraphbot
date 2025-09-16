@@ -61,10 +61,14 @@ sbot::tw::EventSub::EventSub(
     std::shared_ptr<core::ConnectionManager> conn_manager, ClientConfig cfg)
     : m_cfg{std::move(cfg)}, m_conn_manager{std::move(conn_manager)} {
   LOG_CONTEXT("Twitch EventSub");
-  LOG_TRACE("Initializing");
+  LOG_INFO("Initializing");
 }
 
-sbot::tw::EventSub::~EventSub() { LOG_TRACE("Shutting down"); }
+sbot::tw::EventSub::~EventSub() { LOG_INFO("Shutting down"); }
+
+auto sbot::tw::EventSub::getSessionId() -> std::string { return m_session_id; }
+
+auto sbot::tw::EventSub::getTwitchConfig() -> ClientConfig { return m_cfg;}
 
 auto sbot::tw::EventSub::start(on_notify_fn callback) -> asio::awaitable<void> {
   m_callback = std::move(callback);

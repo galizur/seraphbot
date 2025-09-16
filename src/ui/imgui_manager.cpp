@@ -1,13 +1,5 @@
 #include "seraphbot/ui/imgui_manager.hpp"
 
-#include "seraphbot/core/app_state.hpp"
-#include "seraphbot/core/connection_manager.hpp"
-#include "seraphbot/core/logging.hpp"
-#include "seraphbot/core/twitch_service.hpp"
-#include "seraphbot/ui/firasans_font.hpp"
-#include "seraphbot/ui/imgui_backend.hpp"
-#include "seraphbot/viewmodels/discord_viewmodel.hpp"
-
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -17,6 +9,14 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+
+#include "seraphbot/core/app_state.hpp"
+#include "seraphbot/core/logging.hpp"
+#include "seraphbot/core/twitch_service.hpp"
+#include "seraphbot/ui/firasans_font.hpp"
+#include "seraphbot/ui/imgui_backend.hpp"
+#include "seraphbot/viewmodels/auth_viewmodel.hpp"
+#include "seraphbot/viewmodels/discord_viewmodel.hpp"
 
 sbot::ui::ImGuiManager::ImGuiManager(std::unique_ptr<ImGuiBackend> backend,
                                      core::AppState &appstate)
@@ -183,46 +183,43 @@ auto sbot::ui::ImGuiManager::manageFloating() -> void {
   ImGui::End();
 }
 
-auto sbot::ui::ImGuiManager::manageAuth(
-    sbot::core::TwitchService &twitch_service,
-    sbot::core::ConnectionManager &connection) -> void {
+auto sbot::ui::ImGuiManager::manageAuth(sbot::viewmodels::AuthVM &auth_vm)
+    -> void {
   // Auth UI
   ImGui::Begin("Auth");
-  auto tw_state = twitch_service.getState();
+  auth_vm.syncFrom();
 
-  switch (tw_state) {
+  switch (auth_vm.getState()) {
   case sbot::core::TwitchService::State::Disconnected:
     if (ImGui::Button("Login to Twitch")) {
-      twitch_service.startLogin();
+      auth_vm.login();
     }
     break;
   case sbot::core::TwitchService::State::LoggingIn:
     ImGui::Text("Logging in...");
     break;
   case sbot::core::TwitchService::State::LoggedIn:
-    ImGui::Text("Logged in as: %s", twitch_service.getCurrentUser().c_str());
+    ImGui::Text("Logged in as: %s", auth_vm.currentUser().c_str());
     if (ImGui::Button("Connect to Chat")) {
-      boost::asio::co_spawn(*connection.getIoContext(),
-                            twitch_service.connectToChat(),
-                            boost::asio::detached);
+      auth_vm.connect();
     }
     if (ImGui::Button("Logout")) {
-      twitch_service.disconnect();
+      auth_vm.disconnect();
     }
     break;
   case sbot::core::TwitchService::State::ConnectingToChat:
     ImGui::Text("Connecting to chat...");
     break;
   case sbot::core::TwitchService::State::ChatConnected:
-    ImGui::Text("Connected! User: %s", twitch_service.getCurrentUser().c_str());
+    ImGui::Text("Connected! User: %s", auth_vm.currentUser().c_str());
     if (ImGui::Button("Disconnect")) {
-      twitch_service.disconnect();
+      auth_vm.disconnect();
     }
     break;
   case sbot::core::TwitchService::State::Error:
     ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error occurred");
     if (ImGui::Button("Reset")) {
-      twitch_service.disconnect();
+      auth_vm.disconnect();
     }
     break;
   }
@@ -288,6 +285,10 @@ auto sbot::ui::ImGuiManager::manageDiscord(
     discord_vm.syncTo();
   }
   ImGui::SameLine();
-  ImGui::Text(discord_vm.readFrom().c_str());
+  if (ImGui::Button("Test")) {
+    discord_vm.testMessage();
+  }
+  ImGui::SameLine();
+  ImGui::Text(discord_vm.syncFrom().c_str());
   ImGui::End();
 }

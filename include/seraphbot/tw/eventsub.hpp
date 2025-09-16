@@ -5,16 +5,18 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/ssl/ssl_stream.hpp>
-#include <boost/beast/websocket/stream.hpp>
+#include <boost/beast/websocket/stream_fwd.hpp>
 #include <chrono>
 #include <functional>
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
-#include <optional>
 #include <string>
 
-#include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/tw/config.hpp"
+
+namespace sbot::core {
+class ConnectionManager;
+} // namespace sbot::core
 
 namespace sbot::tw {
 
@@ -31,8 +33,8 @@ public:
       -> boost::asio::awaitable<void>;
   auto shutdown() -> boost::asio::awaitable<void>;
 
-  auto getSessionId() -> std::string { return m_session_id; }
-  auto getTwitchConfig() -> ClientConfig { return m_cfg; }
+  auto getSessionId() -> std::string;
+  auto getTwitchConfig() -> ClientConfig;
 
   auto connect() -> boost::asio::awaitable<void>;
   auto doRead() -> boost::asio::awaitable<void>;
@@ -42,13 +44,8 @@ private:
 
   ClientConfig m_cfg;
   std::shared_ptr<core::ConnectionManager> m_conn_manager;
-  // std::optional<boost::beast::ssl_stream<boost::asio::ip::tcp::socket>>
-  //     m_stream;
   std::unique_ptr<boost::beast::ssl_stream<boost::asio::ip::tcp::socket>>
       m_stream;
-  // std::optional<boost::beast::websocket::stream<
-  //     boost::beast::ssl_stream<boost::asio::ip::tcp::socket>>>
-  //     m_wss;
   std::unique_ptr<boost::beast::websocket::stream<
       boost::beast::ssl_stream<boost::asio::ip::tcp::socket>>>
       m_wss;

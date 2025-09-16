@@ -24,6 +24,7 @@
 #include "seraphbot/tw/config.hpp"
 #include "seraphbot/ui/imgui_backend_opengl.hpp"
 #include "seraphbot/ui/imgui_manager.hpp"
+#include "seraphbot/viewmodels/auth_viewmodel.hpp"
 #include "seraphbot/viewmodels/discord_viewmodel.hpp"
 
 auto main() -> int {
@@ -44,6 +45,7 @@ auto main() -> int {
       std::make_unique<sbot::core::TwitchService>(connection, tw_config)};
   sbot::discord::Notifications notif(connection, tw_config);
   sbot::viewmodels::DiscordVM discord_vm(notif);
+  sbot::viewmodels::AuthVM auth_vm(*twitch_service, *connection);
 
   // Setup callbacks
   twitch_service->setMessageCallback(
@@ -64,7 +66,7 @@ auto main() -> int {
 
     imgui_manager.manageDocking();
     imgui_manager.manageFloating();
-    imgui_manager.manageAuth(*twitch_service, *connection);
+    imgui_manager.manageAuth(auth_vm);
     imgui_manager.manageChat(*twitch_service);
     imgui_manager.manageDiscord(discord_vm);
 

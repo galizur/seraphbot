@@ -4,10 +4,10 @@
 #include <imgui.h>
 
 #include "seraphbot/core/app_state.hpp"
-#include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/core/twitch_service.hpp"
 #include "seraphbot/ui/imgui_backend.hpp"
 #include "seraphbot/viewmodels/discord_viewmodel.hpp"
+#include "seraphbot/viewmodels/auth_viewmodel.hpp"
 
 #include <memory>
 #include <string>
@@ -37,8 +37,7 @@ public:
 
   auto manageDocking() -> void;
   auto manageFloating() -> void;
-  auto manageAuth(sbot::core::TwitchService &twitch_service,
-                  sbot::core::ConnectionManager &connection) -> void;
+  auto manageAuth(sbot::viewmodels::AuthVM &auth_vm) -> void;
   auto manageChat(sbot::core::TwitchService &twitch_service) -> void;
   auto manageDiscord(sbot::viewmodels::DiscordVM &discord_vm) -> void;
 
