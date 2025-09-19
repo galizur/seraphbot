@@ -31,16 +31,19 @@ namespace asio = boost::asio;
 } // namespace
 
 sbc::TwitchService::TwitchService(
-    std::shared_ptr<sbc::ConnectionManager> connection, tw::ClientConfig cfg)
+    std::shared_ptr<sbc::ConnectionManager> connection, tw::ClientConfig &cfg)
     : m_connection{std::move(connection)},
       m_auth{std::make_unique<sbt::Auth>(
           m_connection, "seraphbot-oauth-server.onrender.com")},
-      m_config{std::move(cfg)} {
+      m_config{cfg} {
   LOG_CONTEXT("TwitchService");
   LOG_INFO("Initializing");
 }
 
-sbc::TwitchService::~TwitchService() { LOG_INFO("Shutting down"); }
+sbc::TwitchService::~TwitchService() {
+  LOG_CONTEXT("TwitchService");
+  LOG_INFO("Shutting down");
+}
 
 auto sbc::TwitchService::startLogin() -> void {
   if (m_state != State::Disconnected) {

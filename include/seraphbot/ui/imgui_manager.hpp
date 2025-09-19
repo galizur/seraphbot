@@ -6,6 +6,7 @@
 #include "seraphbot/core/app_state.hpp"
 #include "seraphbot/core/twitch_service.hpp"
 #include "seraphbot/ui/imgui_backend.hpp"
+#include "seraphbot/viewmodels/chat_viewmodel.hpp"
 #include "seraphbot/viewmodels/discord_viewmodel.hpp"
 #include "seraphbot/viewmodels/auth_viewmodel.hpp"
 
@@ -26,6 +27,10 @@ public:
   void beginFrame();
   void endFrame();
   void render();
+  void poll();
+  void swapBuffers();
+
+  auto shouldClose() -> bool;
 
   auto initWindow(int width = 1280, int height = 720) -> void;
   auto initWindowVulkan(int width = 1280, int height = 720) -> void;
@@ -38,7 +43,7 @@ public:
   auto manageDocking() -> void;
   auto manageFloating() -> void;
   auto manageAuth(sbot::viewmodels::AuthVM &auth_vm) -> void;
-  auto manageChat(sbot::core::TwitchService &twitch_service) -> void;
+  auto manageChat(sbot::viewmodels::ChatVM &chat_vm) -> void;
   auto manageDiscord(sbot::viewmodels::DiscordVM &discord_vm) -> void;
 
 private:

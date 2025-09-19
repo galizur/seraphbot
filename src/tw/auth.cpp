@@ -119,6 +119,7 @@ sbot::tw::Auth::Auth(std::shared_ptr<core::ConnectionManager> conn_manager,
 }
 
 sbot::tw::Auth::~Auth() {
+  LOG_CONTEXT("Twitch Auth");
   LOG_INFO("Shutting down");
 }
 

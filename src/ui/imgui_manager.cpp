@@ -1,5 +1,6 @@
 #include "seraphbot/ui/imgui_manager.hpp"
 
+#include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -9,6 +10,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "seraphbot/core/app_state.hpp"
 #include "seraphbot/core/logging.hpp"
@@ -16,37 +18,48 @@
 #include "seraphbot/ui/firasans_font.hpp"
 #include "seraphbot/ui/imgui_backend.hpp"
 #include "seraphbot/viewmodels/auth_viewmodel.hpp"
+#include "seraphbot/viewmodels/chat_viewmodel.hpp"
 #include "seraphbot/viewmodels/discord_viewmodel.hpp"
 
 sbot::ui::ImGuiManager::ImGuiManager(std::unique_ptr<ImGuiBackend> backend,
                                      core::AppState &appstate)
     : state{appstate}, m_backend{std::move(backend)},
       m_message_input(256, '\0') {
-  LOG_CONTEXT("ImGui Manager");
-  IMGUI_CHECKVERSION();
+  LOG_CONTEXT("ImGuiManager");
+  LOG_INFO("Initializing");
   initWindow();
-  ImGui::CreateContext();
-  m_context   = ImGui::GetCurrentContext();
+  IMGUI_CHECKVERSION();
+  m_context   = ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   ImGui::StyleColorsDark();
   ImFontGlyphRangesBuilder builder;
   builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
-  // builder.AddRanges(io.Fonts->GetGlyphRangesGreek());
-  // builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
   ImVector<ImWchar> ranges;
   builder.BuildRanges(&ranges);
+  ImFontConfig cfg;
+  cfg.FontDataOwnedByAtlas = false;
   io.Fonts->AddFontFromMemoryTTF(FiraSans_Regular_ttf, FiraSans_Regular_ttf_len,
-                                 18.0F, nullptr, ranges.Data);
+                                 18.0F, &cfg, ranges.Data);
   m_backend->init(m_window);
 }
 
 sbot::ui::ImGuiManager::~ImGuiManager() {
-  LOG_DEBUG("Shutting down ImGuiManager");
-  m_backend->shutdown();
-  ImGui::DestroyContext(m_context);
-  glfwDestroyWindow(m_window);
+  LOG_CONTEXT("ImGuiManager");
+  LOG_INFO("Shutting down");
+  if (m_backend) {
+    m_backend->shutdown();
+    m_backend.reset();
+  }
+  if (m_context) {
+    ImGui::DestroyContext(m_context);
+    m_context = nullptr;
+  }
+  if (m_window) {
+    glfwDestroyWindow(m_window);
+    m_window = nullptr;
+  }
   glfwTerminate();
 }
 
@@ -58,6 +71,20 @@ void sbot::ui::ImGuiManager::beginFrame() {
 void sbot::ui::ImGuiManager::endFrame() { ImGui::Render(); }
 
 void sbot::ui::ImGuiManager::render() { m_backend->renderDrawData(); }
+
+void sbot::ui::ImGuiManager::poll() {
+  glfwPollEvents();
+  glClearColor(0.1F, 0.1F, 0.1F, 1.0F);
+  glClear(GL_COLOR_BUFFER_BIT);
+}
+
+auto sbot::ui::ImGuiManager::shouldClose() -> bool {
+  return glfwWindowShouldClose(m_window) != 0;
+}
+
+auto sbot::ui::ImGuiManager::swapBuffers() -> void {
+  glfwSwapBuffers(m_window);
+}
 
 auto sbot::ui::ImGuiManager::initWindow(int width, int height) -> void {
   if (glfwInit() == 0) {
@@ -226,11 +253,11 @@ auto sbot::ui::ImGuiManager::manageAuth(sbot::viewmodels::AuthVM &auth_vm)
   ImGui::End();
 }
 
-auto sbot::ui::ImGuiManager::manageChat(
-    sbot::core::TwitchService &twitch_service) -> void {
+auto sbot::ui::ImGuiManager::manageChat(sbot::viewmodels::ChatVM &chat_vm)
+    -> void {
   // Chat UI
   ImGui::Begin("Chat");
-  if (twitch_service.canSendMessages()) {
+  if (chat_vm.canSendMessages()) {
     // Process any pending messages
     state.processPendingMessages();
 
@@ -255,7 +282,7 @@ auto sbot::ui::ImGuiManager::manageChat(
                          ImGuiInputTextFlags_EnterReturnsTrue)) {
       std::string msg{m_message_input.data()};
       if (!msg.empty()) {
-        twitch_service.sendMessage(msg);
+        chat_vm.sendMessage(msg);
         m_message_input[0] = '\0';
       }
     }
@@ -263,7 +290,7 @@ auto sbot::ui::ImGuiManager::manageChat(
     if (ImGui::Button("Send")) {
       std::string msg{m_message_input.data()};
       if (!msg.empty()) {
-        twitch_service.sendMessage(msg);
+        chat_vm.sendMessage(msg);
         m_message_input[0] = '\0';
       }
     }
@@ -282,11 +309,11 @@ auto sbot::ui::ImGuiManager::manageDiscord(
   ImGui::InputText("##webhookurl", discord_vm.webhook_url,
                    sizeof(discord_vm.webhook_url));
   if (ImGui::Button("Apply")) {
-    discord_vm.syncTo();
+    discord_vm.syncTo(discord_vm.webhook_url);
   }
   ImGui::SameLine();
   if (ImGui::Button("Test")) {
-    discord_vm.testMessage();
+    discord_vm.testMessage("Test live notification");
   }
   ImGui::SameLine();
   ImGui::Text(discord_vm.syncFrom().c_str());

@@ -13,6 +13,7 @@ sbot::core::AppState::AppState() {
 }
 
 sbot::core::AppState::~AppState() {
+  LOG_CONTEXT("AppState");
   LOG_INFO("Shutting Down");
 }
 

@@ -17,8 +17,9 @@ namespace sbot::core {
 
 class ConnectionManager {
 public:
-  explicit ConnectionManager(std::size_t thread_count = 3);
+  explicit ConnectionManager(std::size_t thread_count);
   ~ConnectionManager();
+  // Deleted
   ConnectionManager(const ConnectionManager &)                     = delete;
   auto operator=(const ConnectionManager &) -> ConnectionManager & = delete;
   ConnectionManager(ConnectionManager &&)                          = delete;

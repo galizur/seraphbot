@@ -29,8 +29,8 @@ auto getIsoTimestamp() -> std::string {
 
 sbot::discord::Notifications::Notifications(
     std::shared_ptr<sbot::core::ConnectionManager> connection,
-    sbot::tw::ClientConfig cfg)
-    : m_connection{std::move(connection)}, m_cfg{std::move(cfg)} {
+    sbot::tw::ClientConfig &cfg)
+    : m_connection{std::move(connection)}, m_cfg{cfg} {
   LOG_CONTEXT("Discord Notifications");
 }
 
