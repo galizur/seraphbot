@@ -14,6 +14,8 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 namespace asio = boost::asio;
@@ -25,10 +27,12 @@ sbot::tw::chat::Send::Send(
     std::shared_ptr<core::ConnectionManager> conn_manager, ClientConfig cfg)
     : m_conn_manager{std::move(conn_manager)}, m_cfg{std::move(cfg)} {
   LOG_CONTEXT("Twitch Chat Send");
-  LOG_TRACE("Initializing");
+  LOG_INFO("Initializing");
 }
 
-sbot::tw::chat::Send::~Send() { LOG_TRACE("Destructor called"); }
+sbot::tw::chat::Send::~Send() {
+  LOG_CONTEXT("Twitch Chat Send");
+  LOG_INFO("Shutting down"); }
 
 auto sbot::tw::chat::Send::message(std::string msg, std::string sender_id)
     -> asio::awaitable<void> {

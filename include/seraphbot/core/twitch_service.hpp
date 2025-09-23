@@ -32,7 +32,9 @@ public:
     Error
   };
 
-explicit TwitchService(std::shared_ptr<ConnectionManager> connection, tw::ClientConfig cfg);
+  explicit TwitchService(std::shared_ptr<ConnectionManager> connection,
+                         tw::ClientConfig &cfg);
+  ~TwitchService();
 
   auto startLogin() -> void;
   auto connectToChat() -> boost::asio::awaitable<void>;
@@ -63,7 +65,7 @@ private:
   std::shared_ptr<tw::EventSub> m_eventsub;
   std::unique_ptr<tw::chat::Read> m_chat_read;
   std::unique_ptr<tw::chat::Send> m_chat_send;
-  tw::ClientConfig m_config;
+  tw::ClientConfig &m_config;
 
   State m_state{State::Disconnected};
   std::string m_current_user;

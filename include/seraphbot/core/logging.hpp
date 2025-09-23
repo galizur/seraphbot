@@ -1,6 +1,7 @@
 #ifndef SBOT_CORE_LOGGING_HPP
 #define SBOT_CORE_LOGGING_HPP
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -94,7 +95,7 @@ private:
   std::shared_ptr<spdlog::logger> m_logger;
   std::vector<std::string> m_context_stack;
   std::mutex m_context_mutex;
-  LogLevel m_current_level = LogLevel::Info;
+  std::atomic<LogLevel> m_current_level = LogLevel::Info;
 };
 
 // Scoped context helper

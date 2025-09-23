@@ -4,7 +4,9 @@
 #include <boost/asio/awaitable.hpp>
 #include <memory>
 
-#include "seraphbot/tw/eventsub.hpp"
+namespace sbot::tw {
+class EventSub;
+} // namespace sbot::tw
 
 namespace sbot::tw::chat {
 

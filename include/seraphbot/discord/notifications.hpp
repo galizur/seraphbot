@@ -13,7 +13,7 @@ namespace sbot::discord {
 class Notifications {
 public:
   Notifications(std::shared_ptr<core::ConnectionManager> connection,
-                tw::ClientConfig cfg);
+                tw::ClientConfig &cfg);
 
   auto sendMessage(std::string message) -> boost::asio::awaitable<void>;
 
@@ -26,7 +26,7 @@ public:
 
 private:
   std::shared_ptr<core::ConnectionManager> m_connection;
-  tw::ClientConfig m_cfg;
+  tw::ClientConfig &m_cfg;
   std::string m_webhook_url;
 };
 

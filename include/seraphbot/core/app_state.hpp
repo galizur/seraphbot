@@ -13,6 +13,9 @@ namespace sbot::core {
 
 class AppState {
 public:
+  AppState();
+  ~AppState();
+
   std::vector<ChatMessage> chat_log;
   std::string last_status;
 

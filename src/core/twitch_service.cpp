@@ -16,7 +16,6 @@
 #include "seraphbot/core/chat_message.hpp"
 #include "seraphbot/core/connection_manager.hpp"
 #include "seraphbot/core/logging.hpp"
-#include "seraphbot/discord/notifications.hpp"
 #include "seraphbot/tw/auth.hpp"
 #include "seraphbot/tw/chat/read.hpp"
 #include "seraphbot/tw/chat/send.hpp"
@@ -32,12 +31,18 @@ namespace asio = boost::asio;
 } // namespace
 
 sbc::TwitchService::TwitchService(
-    std::shared_ptr<sbc::ConnectionManager> connection, tw::ClientConfig cfg)
+    std::shared_ptr<sbc::ConnectionManager> connection, tw::ClientConfig &cfg)
     : m_connection{std::move(connection)},
       m_auth{std::make_unique<sbt::Auth>(
           m_connection, "seraphbot-oauth-server.onrender.com")},
-      m_config{std::move(cfg)} {
-  LOG_CONTEXT("Twitch Service initializing");
+      m_config{cfg} {
+  LOG_CONTEXT("TwitchService");
+  LOG_INFO("Initializing");
+}
+
+sbc::TwitchService::~TwitchService() {
+  LOG_CONTEXT("TwitchService");
+  LOG_INFO("Shutting down");
 }
 
 auto sbc::TwitchService::startLogin() -> void {
@@ -136,13 +141,13 @@ auto sbc::TwitchService::connectToChat() -> asio::awaitable<void> {
              m_eventsub->subscribe("stream.online", "1"),
              boost::asio::detached);
 
-    LOG_DEBUG("Testing Discord");
+    // LOG_DEBUG("Testing Discord");
     // discord::Notifications notif{
     //     m_connection,
     //     m_config,
     // };
     // co_await notif.sendMessage("We are live - test!");
-    LOG_DEBUG("End Discord test");
+    // LOG_DEBUG("End Discord test");
 
     setState(State::ChatConnected, "Connected to chat");
   } catch (const std::exception &err) {

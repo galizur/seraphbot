@@ -31,6 +31,7 @@ sbot::core::ConnectionManager::ConnectionManager(std::size_t thread_count)
       m_resolver{std::make_shared<tcp::resolver>(*m_io_context)},
       m_thread_count{thread_count} {
   LOG_CONTEXT("ConnectionManager");
+  LOG_INFO("Initializing");
 
   m_ssl_context->set_options(ssl::context::default_workarounds |
                              ssl::context::no_sslv2 | ssl::context::no_sslv3 |
@@ -47,23 +48,25 @@ sbot::core::ConnectionManager::ConnectionManager(std::size_t thread_count)
   m_thread_pool.reserve(m_thread_count);
   for (std::size_t i = 0; i < m_thread_count; ++i) {
     m_thread_pool.emplace_back([this, i] {
-      LOG_TRACE("IO thread {} starting", i);
+      LOG_INFO("IO thread {} starting", i);
       try {
         m_io_context->run();
-        LOG_TRACE("Io thread {} finished", i);
+        LOG_INFO("Io thread {} finished", i);
       } catch (const std::exception &err) {
         LOG_ERROR("IO thread {} error: {}", i, err.what());
       }
     });
   }
-  LOG_INFO("ConnectionManager started with {} threads", m_thread_count);
+  LOG_INFO("Started with {} threads", m_thread_count);
 }
 
 sbot::core::ConnectionManager::~ConnectionManager() {
-  LOG_TRACE("Shutting down ConnectionManager");
+  LOG_CONTEXT("ConnectionManager");
+  LOG_INFO("Shutting down");
 
   // Stop accepting new work
   m_work_guard.reset();
+  m_io_context->stop();
 
   // Wait for all operations to complete
   for (auto &thread : m_thread_pool) {
@@ -71,7 +74,8 @@ sbot::core::ConnectionManager::~ConnectionManager() {
       thread.join();
     }
   }
-  LOG_TRACE("Shutdown complete");
+  m_thread_pool.clear();
+  LOG_INFO("Shutdown complete");
 }
 
 auto sbot::core::ConnectionManager::getIoContext() const

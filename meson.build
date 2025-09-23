@@ -70,7 +70,7 @@ subdir('src')
 
 executable(
     'seraphbot',
-    [sources, tw_sources, ui_sources],
+    [sources, core_sources, tw_sources, ui_sources],
     include_directories: inc,
     dependencies: [
         openssl_dep,

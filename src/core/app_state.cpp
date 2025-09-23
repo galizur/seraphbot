@@ -2,6 +2,20 @@
 
 #include <cstddef>
 #include <mutex>
+#include <utility>
+
+#include "seraphbot/core/chat_message.hpp"
+#include "seraphbot/core/logging.hpp"
+
+sbot::core::AppState::AppState() {
+  LOG_CONTEXT("AppState");
+  LOG_INFO("Initializing");
+}
+
+sbot::core::AppState::~AppState() {
+  LOG_CONTEXT("AppState");
+  LOG_INFO("Shutting Down");
+}
 
 auto sbot::core::AppState::pushChatMessage(const ChatMessage &msg) -> void {
   std::lock_guard<std::mutex> lock{m_message_mutex};

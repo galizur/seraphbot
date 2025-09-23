@@ -1,12 +1,15 @@
 #ifndef SBOT_TW_CHAT_SEND_HPP
 #define SBOT_TW_CHAT_SEND_HPP
 
-#include "seraphbot/core/connection_manager.hpp"
-#include "seraphbot/tw/config.hpp"
-
 #include <boost/asio/awaitable.hpp>
 #include <memory>
 #include <string>
+
+#include "seraphbot/tw/config.hpp"
+
+namespace sbot::core {
+class ConnectionManager;
+} // namespace sbot::core
 
 namespace sbot::tw::chat {
 

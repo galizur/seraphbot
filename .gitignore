@@ -30,3 +30,9 @@ logs/
 /auth.sh
 /imgui.ini
 /secrets.txt
+/.clangd
+/.iwyu_mappings
+/custom_mappings.imp
+/iwyu-local.sh
+/test_init.txt
+/todo

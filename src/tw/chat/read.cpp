@@ -23,7 +23,10 @@ sbot::tw::chat::Read::Read(std::shared_ptr<sbot::tw::EventSub> eventsub)
   LOG_INFO("Initializing");
 }
 
-sbot::tw::chat::Read::~Read() { LOG_TRACE("Shutting down"); }
+sbot::tw::chat::Read::~Read() {
+  LOG_CONTEXT("Twitch Chat Read");
+  LOG_INFO("Shutting down"); }
+
 
 auto sbot::tw::chat::Read::requestSubscription() -> asio::awaitable<void> {
   co_await m_eventsub->subscribe("channel.chat.message", "1");

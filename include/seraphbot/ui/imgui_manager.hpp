@@ -1,10 +1,18 @@
 #ifndef SBOT_UI_IMGUI_MANAGER_HPP
 #define SBOT_UI_IMGUI_MANAGER_HPP
 
+#include <imgui.h>
+
 #include "seraphbot/core/app_state.hpp"
+#include "seraphbot/core/twitch_service.hpp"
 #include "seraphbot/ui/imgui_backend.hpp"
+#include "seraphbot/viewmodels/chat_viewmodel.hpp"
+#include "seraphbot/viewmodels/discord_viewmodel.hpp"
+#include "seraphbot/viewmodels/auth_viewmodel.hpp"
 
 #include <memory>
+#include <string>
+#include <vector>
 
 struct GLFWwindow;
 
@@ -13,18 +21,36 @@ namespace sbot::ui {
 class ImGuiManager {
 public:
   explicit ImGuiManager(std::unique_ptr<ImGuiBackend> backend,
-                        core::AppState &appstate, GLFWwindow *window);
+                        core::AppState &appstate);
   ~ImGuiManager();
 
   void beginFrame();
   void endFrame();
   void render();
+  void poll();
+  void swapBuffers();
+
+  auto shouldClose() -> bool;
+
+  auto initWindow(int width = 1280, int height = 720) -> void;
+  auto initWindowVulkan(int width = 1280, int height = 720) -> void;
+  auto hexToImVec4(const std::string &hex) -> ImVec4;
+
+  auto getWindow() -> GLFWwindow * { return m_window; }
 
   core::AppState &state;
+
+  auto manageDocking() -> void;
+  auto manageFloating() -> void;
+  auto manageAuth(sbot::viewmodels::AuthVM &auth_vm) -> void;
+  auto manageChat(sbot::viewmodels::ChatVM &chat_vm) -> void;
+  auto manageDiscord(sbot::viewmodels::DiscordVM &discord_vm) -> void;
 
 private:
   std::unique_ptr<ImGuiBackend> m_backend;
   GLFWwindow *m_window;
+  ImGuiContext *m_context;
+  std::vector<char> m_message_input /*(256, '\0')*/;
 };
 
 } // namespace sbot::ui

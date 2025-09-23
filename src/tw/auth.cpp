@@ -115,7 +115,12 @@ sbot::tw::Auth::Auth(std::shared_ptr<core::ConnectionManager> conn_manager,
                      std::string url_base)
     : m_conn_manager{std::move(conn_manager)}, m_url_base{std::move(url_base)} {
   LOG_CONTEXT("Twitch Auth");
-  LOG_TRACE("Auth starting");
+  LOG_INFO("Initializing");
+}
+
+sbot::tw::Auth::~Auth() {
+  LOG_CONTEXT("Twitch Auth");
+  LOG_INFO("Shutting down");
 }
 
 auto sbot::tw::Auth::isLoggedIn() const -> bool {
@@ -282,22 +287,35 @@ auto sbot::tw::Auth::loginAsync() -> asio::awaitable<void> {
   LOG_INFO("Waiting for authorization...");
 
   // Poll for token
-  int attempts           = 1;
+  bool got_token{false};
+  int attempts           = 0;
   const int max_attempts = 10;
-  while (attempts <= max_attempts) {
-    auto delay = std::chrono::seconds(attempts);
-    LOG_INFO("Waiting {} seconds before attempt {}", delay.count(), attempts);
-
+  auto delay             = std::chrono::milliseconds(300);
+  while (!got_token && attempts < max_attempts) {
     co_await asio::steady_timer{*m_conn_manager->getIoContext(), delay}
         .async_wait(asio::use_awaitable);
     try {
       co_await requestTokenAsync();
       LOG_INFO("Authorization successful!");
-      co_return;
+      got_token = true;
     } catch (const std::exception &e) {
       LOG_WARN("Poll attempt {} failed: {}", attempts, e.what());
     }
-    attempts++;
+    if (!got_token) {
+      attempts++;
+      if (attempts >= 4) {
+        LOG_WARN("Not ready yet");
+        co_await asio::steady_timer{*m_conn_manager->getIoContext(),
+                                    delay * attempts}
+            .async_wait(asio::use_awaitable);
+      } else {
+        co_await asio::steady_timer{*m_conn_manager->getIoContext(), delay}
+            .async_wait(asio::use_awaitable);
+      }
+    }
+  }
+  if (got_token) {
+    co_return;
   }
   LOG_CRITICAL("Authorization timeout after {} attempts", max_attempts);
   throw std::runtime_error("Authorization timeout");
