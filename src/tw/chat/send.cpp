@@ -30,7 +30,9 @@ sbot::tw::chat::Send::Send(
   LOG_INFO("Initializing");
 }
 
-sbot::tw::chat::Send::~Send() { LOG_INFO("Shutting down"); }
+sbot::tw::chat::Send::~Send() {
+  LOG_CONTEXT("Twitch Chat Send");
+  LOG_INFO("Shutting down"); }
 
 auto sbot::tw::chat::Send::message(std::string msg, std::string sender_id)
     -> asio::awaitable<void> {

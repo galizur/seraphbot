@@ -312,10 +312,12 @@ auto sbot::ui::ImGuiManager::manageDiscord(
     discord_vm.syncTo(discord_vm.webhook_url);
   }
   ImGui::SameLine();
-  if (ImGui::Button("Test")) {
-    discord_vm.testMessage("Test live notification");
-  }
-  ImGui::SameLine();
   ImGui::Text(discord_vm.syncFrom().c_str());
+  ImGui::InputText("##notification_message", discord_vm.notification_text,
+                   sizeof(discord_vm.notification_text));
+  ImGui::SameLine();
+  if (ImGui::Button("Test")) {
+    discord_vm.testMessage(discord_vm.notification_text);
+  }
   ImGui::End();
 }

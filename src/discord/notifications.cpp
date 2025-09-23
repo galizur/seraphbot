@@ -48,59 +48,114 @@ auto sbot::discord::Notifications::sendMessage(std::string message)
     LOG_DEBUG("Header: {}: {}", h.first, h.second);
   }
 
-  std::string response = co_await tw::httpsGetAsync(
-      m_connection, m_cfg.helix_host, m_cfg.helix_port, url, headers);
-  nlohmann::json info = nlohmann::json::parse(response);
+  std::string stream_title{"Stream Notification"};
+  std::string game_name{"Just Chatting"};
+  std::string thumbnail_url{""};
+  std::string game_thumbnail{""};
+  std::string twitch_url{"https://www.twitch.tv/"};
 
-  LOG_WARN("=====Stream Info=====\n{}", info.dump());
-  if (!info.contains("data") || info["data"].empty()) {
-    co_return;
+  if (m_cfg.broadcaster_id.empty()) {
+    twitch_url += "channel_name";
+  } else {
+    twitch_url += m_cfg.broadcaster_id;
   }
-  auto data = info["data"][0];
 
-  std::string thumbnail_url = data.value("thumbnail_url", "");
-  thumbnail_url =
-      std::regex_replace(thumbnail_url, std::regex(R"(\{width\})"), "1920");
-  thumbnail_url =
-      std::regex_replace(thumbnail_url, std::regex(R"(\{height\})"), "1080");
+  try {
+    std::string response = co_await tw::httpsGetAsync(
+        m_connection, m_cfg.helix_host, m_cfg.helix_port, url, headers);
+    nlohmann::json info = nlohmann::json::parse(response);
 
-  std::string url_games = "/helix/games?id=" + std::string(data.at("game_id"));
+    LOG_DEBUG("=====Stream Info=====\n{}", info.dump());
+    if (info.contains("data") || !info["data"].empty()) {
+      auto data     = info["data"][0];
+      stream_title  = data.value("title", "Live Stream");
+      game_name     = data.value("game_name", "Just Chatting");
+      thumbnail_url = data.value("thumbnail_url", "");
+      if (!thumbnail_url.empty()) {
+        thumbnail_url = std::regex_replace(thumbnail_url,
+                                           std::regex(R"(\{width\})"), "1920");
+        thumbnail_url = std::regex_replace(thumbnail_url,
+                                           std::regex(R"(\{height\})"), "1080");
+      }
 
-  response.clear();
-  response = co_await tw::httpsGetAsync(m_connection, m_cfg.helix_host,
-                                        m_cfg.helix_port, url_games, headers);
-  nlohmann::json games = nlohmann::json::parse(response);
+      if (data.contains("game_id") && !std::string(data["game_id"]).empty()) {
+        std::string url_games =
+            "/helix/games?id=" + std::string(data.at("game_id"));
 
-  LOG_WARN("=======Game Info=====\n{}", games.dump());
-  if (!games.contains("data") || games["data"].empty()) {
-    co_return;
+        try {
+          std::string game_response =
+              co_await tw::httpsGetAsync(m_connection, m_cfg.helix_host,
+                                         m_cfg.helix_port, url_games, headers);
+          nlohmann::json games = nlohmann::json::parse(game_response);
+
+          LOG_DEBUG("=======Game Info=====\n{}", games.dump());
+          if (games.contains("data") || !games["data"].empty()) {
+            auto game_data = games["data"][0];
+
+            game_thumbnail = game_data.value("box_art_url", "");
+            if (!game_thumbnail.empty()) {
+              game_thumbnail = std::regex_replace(
+                  game_thumbnail, std::regex(R"(\{width\})"), "285");
+              game_thumbnail = std::regex_replace(
+                  game_thumbnail, std::regex(R"(\{height\})"), "380");
+            }
+          }
+        } catch (const std::exception &err) {
+          LOG_WARN("Failed to fetch game info: {}", err.what());
+        }
+      }
+    } else {
+      LOG_INFO("Stream is offline, sending notification with default values");
+    }
+  } catch (const std::exception &err) {
+    LOG_ERROR("Failed to fetch stream info: {}", err.what());
+    LOG_INFO("Using placeholder values for notification");
   }
-  auto game_data = games["data"][0];
 
-  std::string thumbnail_games = game_data.value("box_art_url", "");
-  thumbnail_games =
-      std::regex_replace(thumbnail_url, std::regex(R"(\{width\})"), "285");
-  thumbnail_games =
-      std::regex_replace(thumbnail_url, std::regex(R"(\{height\})"), "380");
-
-  nlohmann::json payload = {
-      {"content", "<@&1267602696706199703> " + message                 },
-      {"embeds",
-       {{{"title", "🔴 Stream is live!"},
-         {"type", "rich"},
-         {"url", "https://www.twitch.tv/lagizur"},
-         {"description", data.at("title")},
-         {"image", thumbnail_url},
-         {"thumbnail", game_data.at("box_art_url")},
-         {"color", 9442302},
-         {"timestamp", getIsoTimestamp()},
-         {"footer", "Sent by SeraphBot"},
-         {"fields",
-          {{{"name", "Game Name"}, {"value", data.at("game_name")}}}}}}}
+  nlohmann::json embed = {
+      {"title",       "🔴 Stream is live!"                              },
+      {"type",        "rich"                                            },
+      {"url",         twitch_url                                        },
+      {"description", stream_title                                      },
+      {"color",       9442302                                           },
+      {"timestamp",   getIsoTimestamp()                                 },
+      {"footer",      {{"text", "Sent by SeraphBot"}}                   },
+      {"fields",
+       nlohmann::json::array(
+           {{{"name", "Game"}, {"value", game_name}, {"inline", true}}})}
   };
 
-  std::string resp = co_await tw::httpsPostAsync(
-      m_connection, "discord.com", "443", m_webhook_url, payload.dump(), {});
+  if (!thumbnail_url.empty()) {
+    embed["image"] = {
+        {"url", thumbnail_url}
+    };
+  }
+  if (!game_thumbnail.empty()) {
+    embed["thumbnail"] = {
+        {"url", game_thumbnail}
+    };
+  }
 
-  LOG_INFO("Discord response: {}", resp);
+  nlohmann::json payload = {
+      {"content", "<@&1267602696706199703> " + message},
+      {"embeds",  nlohmann::json::array({embed})      }
+      // ,
+      // {"components", nlohmann::json::array(
+      //                    {{{"type", 1},
+      //                      {"components", nlohmann::json::array(
+      //                                         {{{"type", 2},
+      //                                           {"label", "Watch Stream"},
+      //                                           {"style", 5},
+      //                                           {"url", twitch_url}}})}}})}
+  };
+
+  LOG_INFO("Payload dump: {}", payload.dump());
+  try {
+    std::string resp = co_await tw::httpsPostAsync(
+        m_connection, "discord.com", "443", m_webhook_url, payload.dump(), {});
+
+    LOG_INFO("Discord notification sent successfully: : {}", resp);
+  } catch (const std::exception &err) {
+    LOG_ERROR("Failed to send Discord notification: {}", err.what());
+  }
 }
