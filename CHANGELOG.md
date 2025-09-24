@@ -10,11 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Text in chat wraps at the end of the window
 - Initial Discord going-live integration
 - Add Discord frontend
-- Moved functionality from main to `ImGuiManager`.
 - Initial implementation of OBS WebSocket connection
+- Basic command parser to recognize incoming chat commands
+- Lua scripting engine via Sol2 for adding user scripting capabilities
+  - Commands have a name and function.
+  - Optionally, you can give aliases, description, usage, global/user cooldowns, max uses per stream and subscriber, moderator or VIP levels of use
+- Some basic examples to test capabilities
+
 
 ### Changed
 - Added a default fallback font (FiraSans - random right now!)
+- Moved functionality from main to `ImGuiManager`.
 
 ## [0.1.0-alpha.2] - 2025-09-12
 ### Changed

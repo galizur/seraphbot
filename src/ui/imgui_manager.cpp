@@ -279,7 +279,7 @@ auto sbot::ui::ImGuiManager::manageChat(sbot::viewmodels::ChatVM &chat_vm)
     ImGui::SetNextItemWidth(-80);
     if (ImGui::InputText("##message", m_message_input.data(),
                          m_message_input.size(),
-                         ImGuiInputTextFlags_EnterReturnsTrue)) {
+                         ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CtrlEnterForNewLine)) {
       std::string msg{m_message_input.data()};
       if (!msg.empty()) {
         chat_vm.sendMessage(msg);

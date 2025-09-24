@@ -5,13 +5,16 @@
 #include <memory>
 #include <string>
 
+#include "seraphbot/core/command_parser.hpp"
 #include "seraphbot/obs/obsservice.hpp"
 #include "seraphbot/tw/config.hpp"
 
 namespace sbot::core {
 class ConnectionManager;
 class AppState;
+class CommandParser;
 class TwitchService;
+class LuaCommandEngine;
 } // namespace sbot::core
 namespace sbot::ui {
 class ImGuiBackend;
@@ -45,6 +48,8 @@ private:
   // Core
   std::shared_ptr<core::ConnectionManager> m_conn;
   std::unique_ptr<core::AppState> m_app_state;
+  std::unique_ptr<core::CommandParser> m_command_parser;
+  std::unique_ptr<core::LuaCommandEngine> m_command_engine;
   std::unique_ptr<core::TwitchService> m_tw_service;
   // Integrations
   std::unique_ptr<discord::Notifications> m_disc_not;
