@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "seraphbot/core/audio_system.hpp"
 #include "seraphbot/core/chat_message.hpp"
 #include "seraphbot/core/command_parser.hpp"
 
@@ -55,7 +56,11 @@ struct CooldownTracker {
 
 class LuaCommandContext {
 public:
-  explicit LuaCommandContext(const CommandContext &ctx) : m_ctx(ctx) {}
+  explicit LuaCommandContext(const CommandContext &ctx,
+                             const std::string &channel_owner,
+                             AudioSystem &audio_system)
+      : m_ctx(ctx), m_channel_owner(channel_owner),
+        m_audio_system(audio_system) {}
 
   [[nodiscard]] auto getUser() const -> std::string {
     return m_ctx.message.user;
@@ -72,7 +77,9 @@ public:
 
   auto reply(const std::string &message) const -> void { m_ctx.reply(message); }
 
-  auto getMessageText() const -> std::string { return m_ctx.message.text; }
+  [[nodiscard]] auto getMessageText() const -> std::string {
+    return m_ctx.message.text;
+  }
 
   [[nodiscard]] auto isBroadcaster() const -> bool {
     return std::ranges::contains(m_ctx.message.badges, "broadcaster");
@@ -103,8 +110,37 @@ public:
         [&badge_name](auto const &badge) { return badge == badge_name; });
   }
 
+  auto isFounder() const -> bool {
+    return std::ranges::contains(m_ctx.message.badges, "founder");
+  }
+
+  auto getSubscriberMonths() const -> int {
+    if (isSubscriber()) {
+      return 5; // TODO: Remove hardcode
+    }
+    return 0;
+  }
+
+  auto listAudioFiles(const std::string &directory)
+      -> std::vector<std::string> {
+    return m_audio_system.listAudioFiles(directory);
+  }
+
+  auto findAudioFile(const std::string &name, const std::string &directory)
+      -> std::string {
+    return m_audio_system.findAudioFile(name, directory);
+  }
+
+  auto playSound(const std::string &filepath,
+                 sol::optional<int> volume = sol::nullopt) {
+    int vol = volume.value_or(70);
+    return m_audio_system.playSound(filepath, vol);
+  }
+
 private:
   const CommandContext &m_ctx;
+  std::string m_channel_owner;
+  AudioSystem &m_audio_system;
 };
 
 class LuaCommandEngine {
@@ -123,18 +159,21 @@ public:
   auto resetStreamCounters() -> void {
     m_cooldown_tracker.resetStreamCounters();
   }
+  auto getAudioSystem() -> AudioSystem & { return m_audio_system; }
 
 private:
   sol::state m_lua;
   std::unordered_map<std::string, std::filesystem::path> m_command_files;
   std::unordered_map<std::string, CommandMetadata> m_command_metadata;
   CooldownTracker m_cooldown_tracker;
+  AudioSystem m_audio_system;
+  std::string m_channel_owner{"lagizur"};
   bool m_initialized{false};
 
   auto setupLuaEnvironment() -> void;
 
-  static auto executeLuaCommand(const CommandContext &ctx,
-                                sol::protected_function lua_func) -> void;
+  auto executeLuaCommand(const CommandContext &ctx,
+                         sol::protected_function lua_func) -> void;
 
   auto parseCommandMetadata(const sol::table &command_table,
                             const std::string &default_name) -> CommandMetadata;

@@ -84,7 +84,7 @@ auto sbot::Application::initializeUi() -> bool {
 auto sbot::Application::setupCallbacks() -> void {
   m_tw_service->setMessageCallback([this](const sbot::core::ChatMessage &msg) {
     m_app_state->pushChatMessage(msg);
-    handleSoundCommands(msg.text);
+    //handleSoundCommands(msg.text);
     auto reply_fn = [this](const std::string &text) {
       m_tw_service->sendMessage(text);
     };

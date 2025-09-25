@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Commands have a name and function.
   - Optionally, you can give aliases, description, usage, global/user cooldowns, max uses per stream and subscriber, moderator or VIP levels of use
 - Some basic examples to test capabilities
+- Add basic audio interaction system (can play sounds from folders)
+- Add basic sandboxing features
 
 
 ### Changed

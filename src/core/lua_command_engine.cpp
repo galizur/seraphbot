@@ -1,4 +1,5 @@
 #include "seraphbot/core/lua_command_engine.hpp"
+#include "seraphbot/core/audio_system.hpp"
 #include "seraphbot/core/command_parser.hpp"
 #include "seraphbot/core/logging.hpp"
 #include <chrono>
@@ -96,15 +97,25 @@ auto sbot::core::LuaCommandEngine::initialize() -> void {
 
 auto sbot::core::LuaCommandEngine::setupLuaEnvironment() -> void {
   m_lua.new_usertype<LuaCommandContext>(
-      "CommandContext", "getUser", &LuaCommandContext::getUser, "getCommand",
-      &LuaCommandContext::getCommand, "getArgs", &LuaCommandContext::getArgs,
-      "joinArgs", &LuaCommandContext::joinArgs, "reply",
-      &LuaCommandContext::reply, "getMessageText", "isBroadcaster",
-      &LuaCommandContext::isBroadcaster, &LuaCommandContext::getMessageText,
-      "isModerator", &LuaCommandContext::isModerator, "isVip",
-      &LuaCommandContext::isVip, "isSubscriber",
-      &LuaCommandContext::isSubscriber, "hasBadge",
-      &LuaCommandContext::hasBadge);
+      // clang-format off
+"CommandContext",
+"getUser", &LuaCommandContext::getUser,
+"getCommand", &LuaCommandContext::getCommand,
+"getArgs", &LuaCommandContext::getArgs,
+"joinArgs", &LuaCommandContext::joinArgs,
+"reply", &LuaCommandContext::reply,
+"getMessageText", &LuaCommandContext::getMessageText,
+"isBroadcaster", &LuaCommandContext::isBroadcaster,
+"isFounder", &LuaCommandContext::isFounder,
+"isModerator", &LuaCommandContext::isModerator,
+"isVip",&LuaCommandContext::isVip,
+"isSubscriber", &LuaCommandContext::isSubscriber,
+"hasBadge", &LuaCommandContext::hasBadge,
+"getSubscriberMonths", &LuaCommandContext::getSubscriberMonths,
+"listAudioFiles", &LuaCommandContext::listAudioFiles,
+"findAudioFile", &LuaCommandContext::findAudioFile,
+"playSound", &LuaCommandContext::playSound);
+  // clang-format on
 
   m_lua["log"] = [](const std::string &message) {
     LOG_INFO("[Lua] {}", message);
@@ -317,7 +328,7 @@ auto sbot::core::LuaCommandEngine::getLoadedCommands() const
 auto sbot::core::LuaCommandEngine::executeLuaCommand(
     const CommandContext &ctx, sol::protected_function lua_func) -> void {
   try {
-    LuaCommandContext lua_ctx(ctx);
+    LuaCommandContext lua_ctx(ctx, m_channel_owner, m_audio_system);
 
     auto result = lua_func(lua_ctx, ctx.args);
 
@@ -383,7 +394,7 @@ auto sbot::core::LuaCommandEngine::hasPermission(
       return true;
     }
   }
-  LuaCommandContext lua_ctx(ctx);
+  LuaCommandContext lua_ctx(ctx, m_channel_owner, const_cast<AudioSystem&>(m_audio_system));
   if (meta.mod_only && !lua_ctx.isModerator()) {
     return false;
   }
