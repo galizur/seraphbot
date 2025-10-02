@@ -40,6 +40,9 @@ nlohmann_dep = dependency('nlohmann_json', version: '>=3.12', required: true)
 thread_dep = dependency('threads', required: true)
 glfw_dep = dependency('glfw3', version: '>=3.4', required: true)
 gl_dep = dependency('gl', required: true)
+lua_dep = dependency('lua', fallback: ['lua', 'lua_dep'], required: true)
+sol2_dep = dependency('sol2', fallback: ['sol2', 'sol2_dep'], required: true)
+miniaudio_dep = dependency('miniaudio', required: true)
 
 # Subprojects
 imgui_proj = subproject('imgui', default_options: 'default_library=static')
@@ -82,5 +85,8 @@ executable(
         imgui_dep,
         gl_dep,
         spdlog_dep,
+        lua_dep,
+        sol2_dep,
+        miniaudio_dep
     ],
 )

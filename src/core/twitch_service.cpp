@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "seraphbot/core/chat_message.hpp"
 #include "seraphbot/core/connection_manager.hpp"
@@ -231,26 +232,35 @@ auto sbc::TwitchService::handleEventSubMessage(const std::string &msg) -> void {
       std::string chatter{raw_msg["payload"]["event"]["chatter_user_name"]};
       std::string text{raw_msg["payload"]["event"]["message"]["text"]};
       std::string color{raw_msg["payload"]["event"]["color"]};
+      std::vector<std::string> badges;
+      badges.reserve(raw_msg["payload"]["event"]["badges"].size());
+      for (const auto &badge : raw_msg["payload"]["event"]["badges"]) {
+        badges.push_back(badge["set_id"].get<std::string>());
+      }
 
       LOG_INFO("Chat from {}: {}", chatter, text);
 
-      ChatMessage chat_msg{.user  = std::move(chatter),
-                           .text  = std::move(text),
-                           .color = std::move(color)};
+      ChatMessage chat_msg{.user   = std::move(chatter),
+                           .text   = std::move(text),
+                           .color  = std::move(color),
+                           .badges = std::move(badges)};
       m_message_callback(chat_msg);
     }
     if (type == "channel.ad_break.begin" && m_message_callback) {
       std::string text{raw_msg["payload"]["event"]["duration_seconds"]};
       LOG_INFO("System message:");
-      ChatMessage chat_msg{.user  = "System",
-                           .text  = text + " second ad break beginning.",
-                           .color = "#AAAAAA"};
+      ChatMessage chat_msg{.user   = "System",
+                           .text   = text + " second ad break beginning.",
+                           .color  = "#AAAAAA",
+                           .badges = {}};
       m_message_callback(chat_msg);
     }
     if (type == "channel.chat.clear" && m_message_callback) {
       LOG_INFO("System message:");
-      ChatMessage chat_msg{
-          .user = "System", .text = "Chat clear requested", .color = "#AAAAAA"};
+      ChatMessage chat_msg{.user   = "System",
+                           .text   = "Chat clear requested",
+                           .color  = "#AAAAAA",
+                           .badges = {}};
       m_message_callback(chat_msg);
     }
   } catch (const std::exception &err) {
