@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Some basic examples to test capabilities
 - Add basic audio interaction system (can play sounds from folders)
 - Add basic sandboxing features
-
+- Remove hardcoded system audio playback and add `miniaudio` library
 
 ### Changed
 - Added a default fallback font (FiraSans - random right now!)

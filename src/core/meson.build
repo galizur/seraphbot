@@ -5,5 +5,6 @@ core_sources = files(
   'twitch_service.cpp',
   'command_parser.cpp',
   'lua_command_engine.cpp',
-  'audio_system.cpp'
+  'audio_system.cpp',
+  'miniaudio_player.cpp'
   )

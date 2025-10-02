@@ -1,11 +1,13 @@
 #include "seraphbot/core/audio_system.hpp"
 #include "seraphbot/core/logging.hpp"
+#include "seraphbot/core/miniaudio_player.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <exception>
 #include <filesystem>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -79,8 +81,14 @@ auto sbot::core::DirectoryWhitelist::normalizePath(
   return result;
 }
 
-sbot::core::AudioSystem::AudioSystem() {
+sbot::core::AudioSystem::AudioSystem()
+    : m_player{std::make_unique<MiniaudioPlayer>()} {
   LOG_CONTEXT("AudioSystem");
+  if (!m_player->initialize()) {
+    LOG_ERROR("Failed to initialized MiniaudioPlayer");
+  } else {
+    LOG_INFO("Initialized with MiniaudioPlayer");
+  }
   LOG_INFO("Initialized");
 }
 
@@ -190,23 +198,39 @@ auto sbot::core::AudioSystem::playSound(const std::filesystem::path &filepath,
 
   volume = std::clamp(volume, 0, 100);
 
-  // TODO: Change from hardcoded mpv
-  std::ostringstream cmd;
-  cmd << "mpv --audio-client-name='SeraphBot' --no-video"
-      << " --volume=" << volume << " --really-quiet"
-      << " \"" << filepath.string() << "\" &";
-
   LOG_INFO("Playing sound: {} at volume {}", filepath.filename().string(),
            volume);
-  LOG_DEBUG("Command: {}", cmd.str());
 
-  return executeAudioCommand(cmd.str());
+  if (!m_player || !m_player->isInitialized()) {
+    LOG_ERROR("Audio player not initialized");
+    return false;
+  }
+  return m_player->playSound(filepath, volume);
+}
+
+auto sbot::core::AudioSystem::setMasterVolume(int volume) -> void {
+  if (m_player && m_player->isInitialized()) {
+    m_player->setMasterVolume(volume);
+  }
+}
+
+auto sbot::core::AudioSystem::getMasterVolume() const -> int {
+  if (m_player && m_player->isInitialized()) {
+    return m_player->getMasterVolume();
+  }
+  return 70;
+}
+
+auto sbot::core::AudioSystem::stopAllSounds() -> void {
+  if (m_player && m_player->isInitialized()) {
+    m_player->stopAll();
+  }
 }
 
 auto sbot::core::AudioSystem::getSupportedExtensions()
     -> std::vector<std::string> {
   // TODO: Change from hardcoded extensions
-  return {".mp3", ".wav", ".m4a", ".ogg"};
+  return {".mp3", ".wav", ".flac", ".ogg"};
 }
 
 auto sbot::core::AudioSystem::isSupportedAudioFile(
@@ -218,21 +242,4 @@ auto sbot::core::AudioSystem::isSupportedAudioFile(
   auto supported = getSupportedExtensions();
   return std::find(supported.begin(), supported.end(), extension) !=
          supported.end();
-}
-
-auto sbot::core::AudioSystem::executeAudioCommand(const std::string &command)
-    -> bool {
-  try {
-    int result = std::system(command.c_str());
-    if (result == 0) {
-      LOG_DEBUG("Audio command executed successfully");
-      return true;
-    } else {
-      LOG_ERROR("Audio command failed with exit code: {}", result);
-      return false;
-    }
-  } catch (const std::exception &err) {
-    LOG_ERROR("Exception executing audio command: {}", err.what());
-    return false;
-  }
 }

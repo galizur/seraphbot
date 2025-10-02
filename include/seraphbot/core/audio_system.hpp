@@ -2,11 +2,14 @@
 #define SBOT_CORE_AUDIO_SYSTEM_HPP
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
 namespace sbot::core {
+
+class MiniaudioPlayer;
 
 class DirectoryWhitelist {
 public:
@@ -39,13 +42,16 @@ public:
   auto playSound(const std::filesystem::path &filepath, int volume = 70)
       -> bool;
   static auto getSupportedExtensions() -> std::vector<std::string>;
+  auto setMasterVolume(int volume) -> void;
+  [[nodiscard]] auto getMasterVolume() const -> int;
+  auto stopAllSounds() -> void;
 
 private:
   DirectoryWhitelist m_whitelist;
+  std::unique_ptr<MiniaudioPlayer> m_player;
 
   [[nodiscard]] auto
   isSupportedAudioFile(const std::filesystem::path &path) const -> bool;
-  auto executeAudioCommand(const std::string &command) -> bool;
 };
 
 } // namespace sbot::core
